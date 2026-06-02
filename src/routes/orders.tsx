@@ -49,6 +49,7 @@ function OrdersPage() {
 
                 <ul className="text-sm text-muted-foreground space-y-1 border-t pt-3">
                   {o.items.map((it, i) => <li key={i}>{it.qty}× {it.name} <span className="float-right">{formatNGN(it.price * it.qty)}</span></li>)}
+                  {o.deliveryFee ? <li className="text-xs pt-1">Delivery fee <span className="float-right">{formatNGN(o.deliveryFee)}</span></li> : null}
                 </ul>
               </article>
             );

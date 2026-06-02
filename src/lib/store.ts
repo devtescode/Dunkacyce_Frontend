@@ -31,6 +31,8 @@ export interface Order {
   id: string;
   userId: string;
   items: { foodId: string; name: string; qty: number; price: number; soupType?: SoupType }[];
+  subtotal: number;
+  deliveryFee: number;
   total: number;
   hostel: string;
   room: string;
@@ -39,6 +41,9 @@ export interface Order {
   status: OrderStatus;
   createdAt: string; // ISO
 }
+
+export const DELIVERY_FEE = 100;
+export const HOSTELS = ["MH1", "MH2", "FH1", "FH2", "FH3"] as const;
 
 export interface User {
   id: string;
@@ -58,7 +63,7 @@ interface State {
   currentUserId: string | null;
 }
 
-const KEY = "dunnkayce_state_v2";
+const KEY = "dunnkayce_state_v3";
 
 const F = (name: string, price: number, image: string, description: string, extra: Partial<Food> = {}): Food => ({
   id: "f_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
@@ -222,7 +227,7 @@ export const store = {
       if (food.status !== "Available") return { error: `${food.name} is ${food.status}` };
       const ordered = store.todayOrderedQty(food.id, u.id);
       if (ordered + c.qty > food.dailyLimit) {
-        return { error: `${food.name}: you can only order ${food.dailyLimit}/day. ${Math.max(0, food.dailyLimit - ordered)} left for you today.` };
+        return { error: `Limit exceeded for ${food.name}. Please come to Dunnkayce physically.` };
       }
     }
 
@@ -231,11 +236,15 @@ export const store = {
       const f = state.foods.find((x) => x.id === c.foodId)!;
       return { foodId: f.id, name: f.name + (c.soupType ? ` (${c.soupType})` : ""), qty: c.qty, price: f.price, soupType: c.soupType };
     });
-    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const deliveryFee = DELIVERY_FEE;
+    const total = subtotal + deliveryFee;
     const order: Order = {
       id: "o" + Date.now(),
       userId: u.id,
       items,
+      subtotal,
+      deliveryFee,
       total,
       hostel: data.hostel,
       room: data.room,
