@@ -63,7 +63,7 @@ interface State {
   currentUserId: string | null;
 }
 
-const KEY = "dunnkayce_state_v2";
+const KEY = "dunnkayce_state_v3";
 
 const F = (name: string, price: number, image: string, description: string, extra: Partial<Food> = {}): Food => ({
   id: "f_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
