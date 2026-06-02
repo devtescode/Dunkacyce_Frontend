@@ -199,10 +199,13 @@ export const store = {
   clearCart() { set((s) => ({ ...s, cart: [] })); },
 
   // orders
-  todayOrderedQty(foodId: string): number {
+  // Per-person daily total for a food (today). If userId omitted, uses current user.
+  todayOrderedQty(foodId: string, userId?: string): number {
+    const uid = userId ?? state.currentUserId;
+    if (!uid) return 0;
     const today = new Date().toDateString();
     return state.orders
-      .filter((o) => new Date(o.createdAt).toDateString() === today && o.paymentStatus !== "Failed" && o.paymentStatus !== "Rejected")
+      .filter((o) => o.userId === uid && new Date(o.createdAt).toDateString() === today && o.paymentStatus !== "Failed" && o.paymentStatus !== "Rejected")
       .flatMap((o) => o.items)
       .filter((i) => i.foodId === foodId)
       .reduce((sum, i) => sum + i.qty, 0);
@@ -212,16 +215,17 @@ export const store = {
     if (!u) return { error: "Not logged in" };
     if (state.cart.length === 0) return { error: "Cart is empty" };
 
-    // Validate daily limits
+    // Validate per-person daily limits
     for (const c of state.cart) {
       const food = state.foods.find((f) => f.id === c.foodId);
       if (!food) return { error: "Food not found" };
       if (food.status !== "Available") return { error: `${food.name} is ${food.status}` };
-      const ordered = store.todayOrderedQty(food.id);
+      const ordered = store.todayOrderedQty(food.id, u.id);
       if (ordered + c.qty > food.dailyLimit) {
-        return { error: `${food.name} daily limit reached (${food.dailyLimit}/day). Only ${Math.max(0, food.dailyLimit - ordered)} left today.` };
+        return { error: `${food.name}: you can only order ${food.dailyLimit}/day. ${Math.max(0, food.dailyLimit - ordered)} left for you today.` };
       }
     }
+
 
     const items = state.cart.map((c) => {
       const f = state.foods.find((x) => x.id === c.foodId)!;
