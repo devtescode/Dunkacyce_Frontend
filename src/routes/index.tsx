@@ -86,7 +86,7 @@ function FoodCard({ food, left }: { food: ReturnType<typeof store.get>["foods"][
           <span className="font-display text-xl text-primary">{formatNGN(food.price)}</span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{food.description}</p>
-        <div className="mt-2 text-xs text-muted-foreground">{Math.max(0, left)} of {food.dailyLimit} left today</div>
+        <div className="mt-2 text-xs text-muted-foreground">You can still order {Math.max(0, left)} of {food.dailyLimit} today</div>
 
         {food.isSwallow && (
           <div className="mt-3">
