@@ -102,10 +102,15 @@ function AdminAuthPage() {
         return toast.error(data.message || "Login failed");
       }
 
+      const admin = data.admin ?? data.user ?? data;
+      if (!admin || typeof admin !== "object") {
+        return toast.error("Login failed");
+      }
+
       toast.success("Welcome Admin 🔥");
 
-      sessionStorage.setItem("adminToken", data.token);
-      sessionStorage.setItem("admin", JSON.stringify(data.admin));
+      sessionStorage.setItem("adminToken", data.token ?? data.accessToken ?? "");
+      sessionStorage.setItem("admin", JSON.stringify(admin));
 
       navigate({ to: "/admin-dashboard", replace: true });
     } catch (err) {

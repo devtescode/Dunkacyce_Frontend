@@ -15,6 +15,15 @@ import { Route as CheckoutRouteImport } from './routes/checkout';
 import { Route as ChangePasswordRouteImport } from './routes/change-password';
 import { Route as CartRouteImport } from './routes/cart';
 import { Route as AdminRouteImport } from './routes/admin';
+import { Route as AdminDashboardRouteImport } from './routes/admin-dashboard';
+import { Route as AdminDashboardFoodManagementRouteImport } from './routes/admin-dashboard-food-management';
+import { Route as AdminDashboardImageUploadRouteImport } from './routes/admin-dashboard-image-upload';
+import { Route as AdminDashboardOrderManagementRouteImport } from './routes/admin-dashboard-order-management';
+import { Route as AdminDashboardPaymentTrackingRouteImport } from './routes/admin-dashboard-payment-tracking';
+import { Route as AdminDashboardUserAnalyticsRouteImport } from './routes/admin-dashboard-user-analytics';
+import { Route as AdminDashboardDeliveryManagementRouteImport } from './routes/admin-dashboard-delivery-management';
+import { Route as AdminDashboardSystemSettingsRouteImport } from './routes/admin-dashboard-system-settings';
+import { Route as AdminDashboardChangePasswordRouteImport } from './routes/admin-dashboard-change-password';
 import { Route as IndexRouteImport } from './routes/index';
 import { Route as AdminloginRouteImport } from "./routes/adminlogin";
 const SignupRoute = SignupRouteImport.update({
@@ -67,6 +76,51 @@ const AdminRoute = AdminRouteImport.update({
     path: '/admin',
     getParentRoute: () => rootRouteImport,
 });
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+    id: '/admin-dashboard',
+    path: '/admin-dashboard',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardFoodManagementRoute = AdminDashboardFoodManagementRouteImport.update({
+    id: '/admin-dashboard/food-management',
+    path: '/admin-dashboard/food-management',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardImageUploadRoute = AdminDashboardImageUploadRouteImport.update({
+    id: '/admin-dashboard/image-upload',
+    path: '/admin-dashboard/image-upload',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardOrderManagementRoute = AdminDashboardOrderManagementRouteImport.update({
+    id: '/admin-dashboard/order-management',
+    path: '/admin-dashboard/order-management',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardPaymentTrackingRoute = AdminDashboardPaymentTrackingRouteImport.update({
+    id: '/admin-dashboard/payment-tracking',
+    path: '/admin-dashboard/payment-tracking',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardUserAnalyticsRoute = AdminDashboardUserAnalyticsRouteImport.update({
+    id: '/admin-dashboard/user-analytics',
+    path: '/admin-dashboard/user-analytics',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardDeliveryManagementRoute = AdminDashboardDeliveryManagementRouteImport.update({
+    id: '/admin-dashboard/delivery-management',
+    path: '/admin-dashboard/delivery-management',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardSystemSettingsRoute = AdminDashboardSystemSettingsRouteImport.update({
+    id: '/admin-dashboard/system-settings',
+    path: '/admin-dashboard/system-settings',
+    getParentRoute: () => rootRouteImport,
+});
+const AdminDashboardChangePasswordRoute = AdminDashboardChangePasswordRouteImport.update({
+    id: '/admin-dashboard/change-password',
+    path: '/admin-dashboard/change-password',
+    getParentRoute: () => rootRouteImport,
+});
 const IndexRoute = IndexRouteImport.update({
     id: '/',
     path: '/',
@@ -81,6 +135,15 @@ const AdminloginRoute = AdminloginRouteImport.update({
 const rootRouteChildren = {
     IndexRoute: IndexRoute,
     AdminRoute: AdminRoute,
+    AdminDashboardRoute: AdminDashboardRoute,
+    AdminDashboardFoodManagementRoute: AdminDashboardFoodManagementRoute,
+    AdminDashboardImageUploadRoute: AdminDashboardImageUploadRoute,
+    AdminDashboardOrderManagementRoute: AdminDashboardOrderManagementRoute,
+    AdminDashboardPaymentTrackingRoute: AdminDashboardPaymentTrackingRoute,
+    AdminDashboardUserAnalyticsRoute: AdminDashboardUserAnalyticsRoute,
+    AdminDashboardDeliveryManagementRoute: AdminDashboardDeliveryManagementRoute,
+    AdminDashboardSystemSettingsRoute: AdminDashboardSystemSettingsRoute,
+    AdminDashboardChangePasswordRoute: AdminDashboardChangePasswordRoute,
     CartRoute: CartRoute,
     ChangePasswordRoute: ChangePasswordRoute,
     CheckoutRoute: CheckoutRoute,
