@@ -15,8 +15,8 @@ const navItems = [
 
 export function Navbar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
-  const cartCount = useStore((s) => s.cart.reduce((n, c) => n + c.qty, 0));
+  const user = useStore((s) => (Array.isArray(s.users) ? s.users : []).find((u) => u.id === s.currentUserId) ?? null);
+  const cartCount = useStore((s) => (Array.isArray(s.cart) ? s.cart : []).reduce((n, c) => n + (c.qty ?? 0), 0));
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -28,7 +28,7 @@ export function Navbar() {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/signup") return null;
   if (!user) return null;
 
   const handleLogout = () => {

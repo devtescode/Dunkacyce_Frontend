@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserDashboardRouteImport } from './routes/user-dashboard'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as OrdersRouteImport } from './routes/orders'
@@ -16,9 +18,20 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as CartRouteImport } from './routes/cart'
+import { Route as AdminloginRouteImport } from './routes/adminlogin'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UserDashboardRoute = UserDashboardRouteImport.update({
+  id: '/user-dashboard',
+  path: '/user-dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -54,6 +67,11 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminloginRoute = AdminloginRouteImport.update({
+  id: '/adminlogin',
+  path: '/adminlogin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -68,6 +86,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
@@ -75,10 +94,13 @@ export interface FileRoutesByFullPath {
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
@@ -86,11 +108,14 @@ export interface FileRoutesByTo {
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
@@ -98,12 +123,15 @@ export interface FileRoutesById {
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/user-dashboard': typeof UserDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/adminlogin'
     | '/cart'
     | '/change-password'
     | '/checkout'
@@ -111,10 +139,13 @@ export interface FileRouteTypes {
     | '/orders'
     | '/payments'
     | '/profile'
+    | '/signup'
+    | '/user-dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
+    | '/adminlogin'
     | '/cart'
     | '/change-password'
     | '/checkout'
@@ -122,10 +153,13 @@ export interface FileRouteTypes {
     | '/orders'
     | '/payments'
     | '/profile'
+    | '/signup'
+    | '/user-dashboard'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/adminlogin'
     | '/cart'
     | '/change-password'
     | '/checkout'
@@ -133,11 +167,14 @@ export interface FileRouteTypes {
     | '/orders'
     | '/payments'
     | '/profile'
+    | '/signup'
+    | '/user-dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AdminloginRoute: typeof AdminloginRoute
   CartRoute: typeof CartRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
   CheckoutRoute: typeof CheckoutRoute
@@ -145,10 +182,26 @@ export interface RootRouteChildren {
   OrdersRoute: typeof OrdersRoute
   PaymentsRoute: typeof PaymentsRoute
   ProfileRoute: typeof ProfileRoute
+  SignupRoute: typeof SignupRoute
+  UserDashboardRoute: typeof UserDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user-dashboard': {
+      id: '/user-dashboard'
+      path: '/user-dashboard'
+      fullPath: '/user-dashboard'
+      preLoaderRoute: typeof UserDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -198,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/adminlogin': {
+      id: '/adminlogin'
+      path: '/adminlogin'
+      fullPath: '/adminlogin'
+      preLoaderRoute: typeof AdminloginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -218,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AdminloginRoute: AdminloginRoute,
   CartRoute: CartRoute,
   ChangePasswordRoute: ChangePasswordRoute,
   CheckoutRoute: CheckoutRoute,
@@ -225,7 +286,19 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersRoute: OrdersRoute,
   PaymentsRoute: PaymentsRoute,
   ProfileRoute: ProfileRoute,
+  SignupRoute: SignupRoute,
+  UserDashboardRoute: UserDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.jsx'
+import type { startInstance } from './start.js'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
