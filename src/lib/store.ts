@@ -31,6 +31,8 @@ export interface Order {
   id: string;
   userId: string;
   items: { foodId: string; name: string; qty: number; price: number; soupType?: SoupType }[];
+  subtotal: number;
+  deliveryFee: number;
   total: number;
   hostel: string;
   room: string;
@@ -39,6 +41,9 @@ export interface Order {
   status: OrderStatus;
   createdAt: string; // ISO
 }
+
+export const DELIVERY_FEE = 100;
+export const HOSTELS = ["MH1", "MH2", "FH1", "FH2", "FH3"] as const;
 
 export interface User {
   id: string;
