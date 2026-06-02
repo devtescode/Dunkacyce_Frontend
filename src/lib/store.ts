@@ -227,7 +227,7 @@ export const store = {
       if (food.status !== "Available") return { error: `${food.name} is ${food.status}` };
       const ordered = store.todayOrderedQty(food.id, u.id);
       if (ordered + c.qty > food.dailyLimit) {
-        return { error: `${food.name}: you can only order ${food.dailyLimit}/day. ${Math.max(0, food.dailyLimit - ordered)} left for you today.` };
+        return { error: `Limit exceeded for ${food.name}. Please come to Dunnkayce physically.` };
       }
     }
 
@@ -236,11 +236,15 @@ export const store = {
       const f = state.foods.find((x) => x.id === c.foodId)!;
       return { foodId: f.id, name: f.name + (c.soupType ? ` (${c.soupType})` : ""), qty: c.qty, price: f.price, soupType: c.soupType };
     });
-    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const deliveryFee = DELIVERY_FEE;
+    const total = subtotal + deliveryFee;
     const order: Order = {
       id: "o" + Date.now(),
       userId: u.id,
       items,
+      subtotal,
+      deliveryFee,
       total,
       hostel: data.hostel,
       room: data.room,
