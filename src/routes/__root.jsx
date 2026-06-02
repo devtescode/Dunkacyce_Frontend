@@ -79,7 +79,7 @@ function RootComponent() {
 function RouteAwareFooter() {
     const router = useRouter();
     const path = router.state.location.pathname;
-    if (path === "/login" || path === "/signup" || path === "/adminlogin" || path === "/admin-dashboard" 
+    if (path === "/login" || path === "/signup" || path === "/adminlogin" || path === "/admin-dashboard" || path.startsWith("/admin-dashboard/")
       
     )
         return null;

@@ -113,12 +113,12 @@ export function AdminNavbar({ children }) {
           desktopLoaded ? "lg:transition-transform lg:duration-300 lg:ease-in-out" : "lg:transition-none",
           desktopLoaded ? (desktopOpen ? "lg:translate-x-0" : "lg:-translate-x-full") : "lg:opacity-0"
         )}>
-          <div className="mb-6 px-2">
+          {/* <div className="mb-6 px-2">
             <Link to="/admin-dashboard" className="flex items-center gap-3 rounded-3xl bg-primary px-4 py-4 text-lg font-semibold text-primary-foreground shadow-sm">
               <LayoutDashboard className="h-5 w-5" />
               Admin Panel
             </Link>
-          </div>
+          </div> */}
           <nav className="space-y-1 px-2">
             {adminNavItems.map((item) => {
               const Icon = item.icon;
