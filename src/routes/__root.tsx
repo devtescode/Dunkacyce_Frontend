@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { Toaster } from "sonner";
 
 function NotFoundComponent() {
@@ -80,9 +81,20 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <Navbar />
-      <Outlet />
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex-1"><Outlet /></div>
+        <RouteAwareFooter />
+      </div>
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );
 }
+
+function RouteAwareFooter() {
+  const router = useRouter();
+  const path = router.state.location.pathname;
+  if (path === "/login") return null;
+  return <Footer />;
+}
+
