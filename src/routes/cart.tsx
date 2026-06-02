@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
-import { store, useStore, formatNGN, type PaymentMethod } from "@/lib/store";
+import { store, useStore, formatNGN, HOSTELS, DELIVERY_FEE } from "@/lib/store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/cart")({
@@ -9,29 +9,25 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
-const HOSTELS = ["Daniel Hall", "Joseph Hall", "Esther Hall", "Mary Hall", "Off-Campus"];
-
 function CartPage() {
   const navigate = useNavigate();
   const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
   const cart = useStore((s) => s.cart);
   const foods = useStore((s) => s.foods);
-  const [hostel, setHostel] = useState(HOSTELS[0]);
+  const [hostel, setHostel] = useState<string>(HOSTELS[0]);
   const [room, setRoom] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("Paystack");
 
   useEffect(() => { if (!user) navigate({ to: "/login" }); }, [user, navigate]);
   if (!user) return null;
 
   const items = cart.map((c) => ({ ...c, food: foods.find((f) => f.id === c.foodId)! })).filter((i) => i.food);
-  const total = items.reduce((s, i) => s + i.food.price * i.qty, 0);
+  const subtotal = items.reduce((s, i) => s + i.food.price * i.qty, 0);
+  const total = subtotal + DELIVERY_FEE;
 
-  const checkout = () => {
+  const continueToPayment = () => {
     if (!room.trim()) return toast.error("Enter your room number");
-    const result = store.createOrder({ hostel, room: room.trim(), paymentMethod: method });
-    if ("error" in result) return toast.error(result.error);
-    toast.success(method === "Paystack" ? "Payment successful! Order placed." : "Order placed. Awaiting manual payment verification.");
-    navigate({ to: "/orders" });
+    sessionStorage.setItem("dk_checkout", JSON.stringify({ hostel, room: room.trim() }));
+    navigate({ to: "/checkout" });
   };
 
   if (items.length === 0) {
@@ -73,7 +69,7 @@ function CartPage() {
         </div>
 
         <aside className="rounded-xl border bg-card p-5 h-fit sticky top-20 space-y-4">
-          <h2 className="font-display text-2xl">Checkout</h2>
+          <h2 className="font-display text-2xl">Delivery</h2>
           <div>
             <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">Hostel</label>
             <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={hostel} onChange={(e) => setHostel(e.target.value)}>
@@ -82,23 +78,16 @@ function CartPage() {
           </div>
           <div>
             <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">Room number</label>
-            <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={room} onChange={(e) => setRoom(e.target.value)} placeholder="e.g. A-204" />
+            <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={room} onChange={(e) => setRoom(e.target.value)} placeholder="e.g. 204" />
           </div>
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-2">Payment</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["Paystack", "Moniepoint"] as const).map((m) => (
-                <button key={m} onClick={() => setMethod(m)} className={`rounded-lg border-2 px-3 py-2 text-sm font-medium ${method === m ? "border-primary bg-primary/5 text-primary" : "border-border"}`}>{m}</button>
-              ))}
-            </div>
-            {method === "Moniepoint" && <p className="mt-2 text-xs text-muted-foreground">Send payment to <strong>Moniepoint 1234567890 — Dunnkayce</strong>. Admin will verify.</p>}
-          </div>
-          <div className="border-t pt-4">
-            <div className="flex justify-between mb-3">
+          <div className="border-t pt-4 space-y-1.5 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatNGN(subtotal)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivery fee</span><span>{formatNGN(DELIVERY_FEE)}</span></div>
+            <div className="flex justify-between pt-2 border-t mt-2">
               <span className="text-muted-foreground">Total</span>
               <span className="font-display text-2xl text-primary">{formatNGN(total)}</span>
             </div>
-            <button onClick={checkout} className="w-full rounded-lg bg-primary py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition">Place order</button>
+            <button onClick={continueToPayment} className="mt-3 w-full rounded-lg bg-primary py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition">Order</button>
           </div>
         </aside>
       </div>
