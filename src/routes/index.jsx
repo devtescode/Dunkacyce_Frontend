@@ -32,7 +32,18 @@ function Home() {
   useEffect(() => {
     fetch("http://localhost:5000/food")
       .then((res) => res.json())
-      .then((data) => setFoods(data.foods ?? []))
+      .then((data) => {
+        const backendFoods = Array.isArray(data.foods)
+          ? data.foods.map((f) => ({
+              ...f,
+              id: f._id ?? f.id,
+              image: f.imageUrl ?? f.image,
+              imageUrl: f.imageUrl ?? f.image,
+            }))
+          : [];
+        setFoods(backendFoods);
+        store.setFoods(backendFoods);
+      })
       .catch(() => toast.error("Failed to load menu"));
   }, []);
 
@@ -89,7 +100,8 @@ function FoodCard({ food, left }) {
 
   const add = () => {
     if (disabled) return toast.error(left <= 0 ? "Daily limit reached" : `Currently ${food.status}`);
-    store.addToCart(food._id, 1, food.isSwallow ? soup : undefined);
+    const foodId = food._id ?? food.id;
+    store.addToCart(foodId, 1, food.isSwallow ? soup : undefined);
     toast.success(`${food.name} added to cart`);
   };
 

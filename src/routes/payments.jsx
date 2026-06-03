@@ -11,15 +11,15 @@ function PaymentsPage() {
     const [user, setUser] = useState(() => getSessionUser());
     const orders = useStore((s) => (user ? (Array.isArray(s.orders) ? s.orders.filter((o) => o.userId === user.id) : []) : []));
     useEffect(() => {
-        if (!user) {
-            const sessionUser = getSessionUser();
-            if (sessionUser) {
-                setUser(sessionUser);
-                return;
-            }
-            navigate({ to: "/login" });
+        if (user)
+            return;
+        const sessionUser = getSessionUser();
+        if (sessionUser) {
+            setUser(sessionUser);
+            return;
         }
-    }, [user, navigate]);
+        navigate({ to: "/login" });
+    }, []);
     if (!user)
         return null;
     const color = (s) => s === "Paid" ? "bg-success/15 text-success" : s === "Pending" ? "bg-warning/20 text-warning-foreground" : "bg-destructive/15 text-destructive";

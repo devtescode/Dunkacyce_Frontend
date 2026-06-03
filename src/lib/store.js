@@ -168,6 +168,9 @@ export const store = {
     deleteFood(id) {
         set((s) => ({ ...s, foods: s.foods.filter((f) => f.id !== id) }));
     },
+    setFoods(foods) {
+        set((s) => ({ ...s, foods }));
+    },
     // cart
     addToCart(foodId, qty = 1, soupType) {
         set((s) => {

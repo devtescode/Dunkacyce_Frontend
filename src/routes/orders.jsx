@@ -47,7 +47,7 @@ function OrdersPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="font-display text-4xl mb-6">My Orders</h1>
+      <h1 className="font-display text-4xl mb-6">Orders History</h1>
 
       {orders.length === 0 ? (
         <div className="rounded-2xl border bg-card p-16 text-center flex flex-col items-center gap-4">

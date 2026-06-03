@@ -28,7 +28,7 @@ function CartPage() {
     }, [user, navigate]);
     if (!user)
         return null;
-    const items = cart.map((c) => ({ ...c, food: foods.find((f) => f.id === c.foodId) })).filter((i) => i.food);
+    const items = cart.map((c) => ({ ...c, food: foods.find((f) => f.id === c.foodId || f._id === c.foodId) })).filter((i) => i.food);
     const subtotal = items.reduce((s, i) => s + i.food.price * i.qty, 0);
     const total = subtotal + DELIVERY_FEE;
     const continueToPayment = () => {
@@ -50,7 +50,7 @@ function CartPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           {items.map((i) => (<div key={i.foodId + (i.soupType ?? "")} className="flex gap-4 rounded-xl border bg-card p-3">
-              <img src={i.food.image} alt={i.food.name} className="h-24 w-24 rounded-lg object-cover"/>
+              <img src={i.food.imageUrl ?? i.food.image} alt={i.food.name} className="h-24 w-24 rounded-lg object-cover"/>
               <div className="flex-1">
                 <div className="flex justify-between gap-2">
                   <div>
@@ -83,7 +83,7 @@ function CartPage() {
           </div>
           <div className="border-t pt-4 space-y-1.5 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatNGN(subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivery fee</span><span>{formatNGN(DELIVERY_FEE)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivery fee & Take Away</span><span>{formatNGN(DELIVERY_FEE)}</span></div>
             <div className="flex justify-between pt-2 border-t mt-2">
               <span className="text-muted-foreground">Total</span>
               <span className="font-display text-2xl text-primary">{formatNGN(total)}</span>
