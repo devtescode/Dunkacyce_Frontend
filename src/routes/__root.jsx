@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts, } from "@tanstack/react-router";
+import { Outlet, Link, createRootRouteWithContext, useRouterState, useRouter, HeadContent, Scripts, } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -96,9 +96,12 @@ function RootComponent() {
       setSessionLoaded(true);
     }, []);
 
+    const pathname = useRouterState({ select: (r) => r.location.pathname });
+    const isAdminPath = pathname?.startsWith("/admin");
+
     return (<QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
-        <Navbar />
+        {!isAdminPath && <Navbar />}
         <div className="flex-1">
           {sessionLoaded ? <Outlet /> : <div className="flex min-h-screen items-center justify-center bg-background"><div className="text-sm text-muted-foreground">Restoring session…</div></div>}
         </div>

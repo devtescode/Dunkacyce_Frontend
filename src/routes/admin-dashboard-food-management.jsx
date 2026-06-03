@@ -173,8 +173,17 @@ function FoodForm({ initial, token, onClose, onSaved }) {
     status: initial?.status ?? "Available",
     isSwallow: initial?.isSwallow ?? false,
   });
+  const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(initial?.imageUrl ?? "");
+
+  useEffect(() => {
+    return () => {
+      if (preview?.startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   const set = (key, val) => setForm((p) => ({ ...p, [key]: val }));
 
@@ -188,26 +197,42 @@ function FoodForm({ initial, token, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.price || !form.imageUrl) {
-      return toast.error("Name, price and image URL are required");
+    if (!form.name || !form.price || (!form.imageUrl && !imageFile)) {
+      return toast.error("Name, price and image file are required");
     }
 
     try {
       setLoading(true);
       const url = isEdit ? `${BASE}/food/${initial._id}` : `${BASE}/food`;
       const method = isEdit ? "PUT" : "POST";
+      let body;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("image", imageFile);
+        formData.append("name", form.name);
+        formData.append("price", Number(form.price));
+        formData.append("category", form.category);
+        formData.append("status", form.status);
+        formData.append("isSwallow", form.isSwallow ? "true" : "false");
+        formData.append("dailyLimit", form.category === "Foods" ? "10" : "3");
+        body = formData;
+      } else {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify({
           ...form,
           price: Number(form.price),
           dailyLimit: form.category === "Foods" ? 10 : 3,
-        }),
+        });
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body,
       });
 
       const data = await res.json();
@@ -288,11 +313,20 @@ function FoodForm({ initial, token, onClose, onSaved }) {
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Image URL</span>
             <input
-              type="text"
+              type="file"
+              accept="image/*"
               className="mt-1 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none focus:border-primary/70 transition"
-              value={form.imageUrl}
-              onChange={(e) => { set("imageUrl", e.target.value); setPreview(e.target.value); }}
-              placeholder="https://..."
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setImageFile(file);
+                if (file) {
+                  setPreview(URL.createObjectURL(file));
+                  set("imageUrl", file.name);
+                } else {
+                  setPreview(initial?.imageUrl ?? "");
+                  set("imageUrl", initial?.imageUrl ?? "");
+                }
+              }}
             />
           </label>
 
