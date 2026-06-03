@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
 const BASE = "http://localhost:5000";
+
 const normalizeFood = (food) => ({
   ...food,
   id: food._id ?? food.id,
@@ -44,7 +45,6 @@ function UserDashboard() {
   const [q, setQ] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
-  // 🔐 AUTH GUARD
   useEffect(() => {
     if (!user) {
       const sessionUser = getSessionUser();
@@ -69,15 +69,16 @@ function UserDashboard() {
         setLoadingFoods(true);
         const res = await fetch(`${BASE}/food`);
         const data = await res.json();
+
         const items = Array.isArray(data)
           ? data
           : Array.isArray(data.foods)
           ? data.foods
           : [];
+
         setFoods(items.map(normalizeFood));
       } catch (error) {
-        console.error(error);
-        toast.error("Failed to load menu. Refresh to try again.");
+        toast.error("Failed to load menu");
       } finally {
         setLoadingFoods(false);
       }
@@ -87,9 +88,10 @@ function UserDashboard() {
   }, []);
 
   const userFirstName = user?.fullName?.split(" ")[0] ?? "there";
+
   const filtered = useMemo(
     () =>
-      (foods ?? []).filter(
+      foods.filter(
         (f) =>
           (cat === "All" || f.category === cat) &&
           f.name.toLowerCase().includes(q.toLowerCase())
@@ -105,13 +107,11 @@ function UserDashboard() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      {/* HERO */}
+      {/* HERO (UNCHANGED) */}
       <section className="rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-[oklch(0.55_0.18_30)] p-8 md:p-12 text-primary-foreground mb-8 relative overflow-hidden">
         <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-accent/30 blur-3xl" />
         <div className="absolute -left-8 -bottom-12 h-40 w-40 rounded-full bg-warning/30 blur-3xl" />
@@ -136,7 +136,7 @@ function UserDashboard() {
         </div>
       </section>
 
-      {/* FILTERS */}
+      {/* FILTERS (UNCHANGED) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="flex gap-2">
           {["All", "Foods", "Protein"].map((c) => (
@@ -165,7 +165,7 @@ function UserDashboard() {
         </div>
       </div>
 
-      {/* FOOD LIST */}
+      {/* FOOD LIST (UNCHANGED UI) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {loadingFoods && (
           <div className="col-span-full text-center text-muted-foreground py-12">
@@ -189,19 +189,58 @@ function UserDashboard() {
   );
 }
 
+/* ================= FOOD CARD ================= */
+
 function FoodCard({ food, left }) {
   const [soup, setSoup] = useState("Egusi");
 
+  // ✅ FIXED: proper state safety
+  const [quantity, setQuantity] = useState(1);
+
   const disabled = food.status !== "Available" || left <= 0;
 
-  const add = () => {
-    if (disabled)
+  // ✅ FIXED: correct decrement logic
+  const increase = () => setQuantity((p) => p + 1);
+
+  const decrease = () =>
+    setQuantity((p) => (p > 1 ? p - 1 : 1));
+
+  const add = async () => {
+    if (disabled) {
       return toast.error(
         left <= 0 ? "Daily limit reached" : `Currently ${food.status}`
       );
+    }
 
-    store.addToCart(food.id, 1, food.isSwallow ? soup : undefined);
-    toast.success(`${food.name} added to cart`);
+    try {
+      const token = sessionStorage.getItem("token");
+
+      const res = await fetch(`${BASE}/cart/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          foodId: food.id,
+          quantity,
+          soup: food.isSwallow ? soup : null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return toast.error(data.message || "Failed to add item");
+      }
+
+      toast.success(`${food.name} added (${quantity})`);
+
+      // ✅ IMPORTANT FIX: reset quantity after add
+      setQuantity(1);
+    } catch (error) {
+      toast.error("Network error");
+    }
   };
 
   const statusColor =
@@ -220,9 +259,7 @@ function FoodCard({ food, left }) {
           className="h-full w-full object-cover transition group-hover:scale-105"
         />
 
-        <span
-          className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}
-        >
+        <span className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}>
           {food.status}
         </span>
 
@@ -234,6 +271,19 @@ function FoodCard({ food, left }) {
       <div className="p-4">
         <h3 className="font-semibold text-lg">{food.name}</h3>
         <p className="text-sm text-muted-foreground">{food.description}</p>
+
+        {/* QUANTITY CONTROL (UNCHANGED UI STRUCTURE) */}
+        <div className="mt-3 flex items-center justify-between rounded-lg border px-3 py-2">
+          <button onClick={decrease} className="text-lg font-bold px-2">
+            -
+          </button>
+
+          <span className="font-semibold">{quantity}</span>
+
+          <button onClick={increase} className="text-lg font-bold px-2">
+            +
+          </button>
+        </div>
 
         <button
           onClick={add}

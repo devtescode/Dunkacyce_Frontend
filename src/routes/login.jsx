@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { store } from "@/lib/store";
+import { setSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -48,15 +49,17 @@ function LoginPage() {
         return toast.error("Login failed: invalid user data");
       }
 
-      toast.success(`Welcome ${currentUser.fullName} 🎉`);
+      const normalizedUser = { ...currentUser, id: currentUser.id ?? currentUser._id };
+
+      toast.success(`Welcome ${normalizedUser.fullName} 🎉`);
 
       // Sync backend user into local store so dashboard can read the current user.
-      store.syncUser(currentUser);
+      store.syncUser(normalizedUser);
       if (token) {
         store.setAuthToken(token);
         sessionStorage.setItem("token", token);
       }
-      sessionStorage.setItem("user", JSON.stringify(currentUser));
+      setSessionUser(normalizedUser);
 
       navigate({ to: "/user-dashboard", replace: true });
     } catch (err) {

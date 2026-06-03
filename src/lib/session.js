@@ -1,9 +1,17 @@
+function normalizeSessionUser(user) {
+  if (!user || typeof user !== "object") return null;
+  const id = user.id ?? user._id;
+  if (!id) return null;
+  return { ...user, id };
+}
+
 export function getSessionUser() {
   if (typeof window === "undefined") return null;
   const stored = sessionStorage.getItem("user");
   if (!stored) return null;
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    return normalizeSessionUser(parsed);
   } catch {
     return null;
   }
@@ -16,11 +24,12 @@ export function getSessionToken() {
 
 export function setSessionUser(user) {
   if (typeof window === "undefined") return;
-  if (!user || !user.id) {
+  const normalized = normalizeSessionUser(user);
+  if (!normalized) {
     sessionStorage.removeItem("user");
     return;
   }
-  sessionStorage.setItem("user", JSON.stringify(user));
+  sessionStorage.setItem("user", JSON.stringify(normalized));
 }
 
 export function setSessionToken(token) {

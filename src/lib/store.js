@@ -75,8 +75,9 @@ function load() {
         if (sessionRaw) {
             try {
                 const parsed = JSON.parse(sessionRaw);
-                if (parsed?.id) {
-                    sessionUser = parsed;
+                const userId = parsed?.id ?? parsed?._id;
+                if (userId) {
+                    sessionUser = { ...parsed, id: userId };
                 }
             }
             catch {
@@ -135,12 +136,15 @@ export const store = {
     logout() { set((s) => ({ ...s, currentUserId: null, authToken: null, cart: [] })); },
     setAuthToken(token) { set((s) => ({ ...s, authToken: token })); },
     syncUser(user) {
+        const userId = user?.id ?? user?._id;
+        if (!userId) return;
+        const normalized = { ...user, id: userId };
         set((s) => {
-            const exists = s.users.some((u) => u.id === user.id);
+            const exists = s.users.some((u) => u.id === userId);
             return {
                 ...s,
-                users: exists ? s.users.map((u) => u.id === user.id ? { ...u, ...user } : u) : [...s.users, user],
-                currentUserId: user.id,
+                users: exists ? s.users.map((u) => u.id === userId ? { ...u, ...normalized } : u) : [...s.users, normalized],
+                currentUserId: userId,
                 cart: [],
             };
         });

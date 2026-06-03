@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { store } from "@/lib/store";
+import { setSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({
@@ -53,9 +54,10 @@ function SignupPage() {
                 return toast.error("Signup failed: invalid user data");
             }
 
+            const normalizedUser = { ...currentUser, id: currentUser.id ?? currentUser._id };
             toast.success("Account created successfully 🎉");
-            store.syncUser(currentUser);
-            sessionStorage.setItem("user", JSON.stringify(currentUser));
+            store.syncUser(normalizedUser);
+            setSessionUser(normalizedUser);
 
             if (token) {
               store.setAuthToken(token);
