@@ -269,8 +269,10 @@ function FoodCard({ food, left }) {
       </div>
 
       <div className="p-4">
-        <h3 className="font-semibold text-lg">{food.name}</h3>
-        <p className="text-sm text-muted-foreground">{food.description}</p>
+        <div className="flex items-center gap-2 mb-1 justify-between">
+          <h3 className="font-semibold text-lg">{food.name}</h3>
+          <p className="font-semibold text-lg">₦{food.price.toFixed(2)}</p>
+        </div>
 
         {/* QUANTITY CONTROL (UNCHANGED UI STRUCTURE) */}
         <div className="mt-3 flex items-center justify-between rounded-lg border px-3 py-2">

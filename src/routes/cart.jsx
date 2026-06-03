@@ -81,7 +81,7 @@ function CartPage() {
       const token = sessionStorage.getItem("token");
 
       const res = await fetch(`${BASE}/cart/updatecartqty`, {
-         method: "PUT",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -121,14 +121,18 @@ function CartPage() {
       toast.error("Network error");
     }
   };
-
-  const continueToPayment = () => {
+  
+ const continueToPayment = () => {
     if (!room.trim()) return toast.error("Enter your room number");
 
-    sessionStorage.setItem(
-      "dk_checkout",
-      JSON.stringify({ hostel, room: room.trim() })
-    );
+    const checkoutData = {
+      hostel,
+      room: room.trim(),
+      subtotal,
+      total,
+    };
+
+    sessionStorage.setItem("dk_checkout", JSON.stringify(checkoutData));
 
     navigate({ to: "/checkout" });
   };
