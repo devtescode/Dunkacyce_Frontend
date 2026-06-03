@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Home, ShoppingCart, Package, CreditCard, User, KeyRound, MessageCircle, LogOut, Shield, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { store, useStore } from "@/lib/store";
+import { getSessionUser, clearSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -15,7 +16,7 @@ const navItems = [
 
 export function Navbar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const user = useStore((s) => (Array.isArray(s.users) ? s.users : []).find((u) => u.id === s.currentUserId) ?? null);
+  const [user, setUser] = useState(() => getSessionUser());
   const cartCount = useStore((s) => (Array.isArray(s.cart) ? s.cart : []).reduce((n, c) => n + (c.qty ?? 0), 0));
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -33,6 +34,8 @@ export function Navbar() {
 
   const handleLogout = () => {
     store.logout();
+    clearSession();
+    setUser(null);
     setOpen(false);
     navigate({ to: "/login" });
   };

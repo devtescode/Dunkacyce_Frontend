@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const adminNavItems = [
   { to: "/admin-dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/admin-dashboard/food-management", label: "Food Management", icon: Box },
-  { to: "/admin-dashboard/image-upload", label: "Image Upload", icon: Camera },
+  // { to: "/admin-dashboard/image-upload", label: "Image Upload", icon: Camera },
   { to: "/admin-dashboard/order-management", label: "Order Management", icon: Truck },
   { to: "/admin-dashboard/payment-tracking", label: "Payment Tracking", icon: CreditCard },
   { to: "/admin-dashboard/user-analytics", label: "User Analytics", icon: Users },

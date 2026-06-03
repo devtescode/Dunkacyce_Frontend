@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CreditCard, Wallet, ArrowLeft } from "lucide-react";
 import { store, useStore, formatNGN, DELIVERY_FEE } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 export const Route = createFileRoute("/checkout")({
     head: () => ({ meta: [{ title: "Checkout — Dunnkayce" }] }),
@@ -9,7 +10,7 @@ export const Route = createFileRoute("/checkout")({
 });
 function CheckoutPage() {
     const navigate = useNavigate();
-    const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+    const [user, setUser] = useState(() => getSessionUser());
     const cart = useStore((s) => s.cart);
     const foods = useStore((s) => s.foods);
     const [method, setMethod] = useState("Paystack");
@@ -17,6 +18,12 @@ function CheckoutPage() {
     const [delivery, setDelivery] = useState(null);
     useEffect(() => {
         if (!user) {
+            const sessionUser = getSessionUser();
+            if (sessionUser) {
+              setUser(sessionUser);
+              store.syncUser(sessionUser);
+              return;
+            }
             navigate({ to: "/login" });
             return;
         }

@@ -46,6 +46,7 @@ const initial = {
     orders: [],
     cart: [],
     currentUserId: null,
+    authToken: null,
 };
 let state = load();
 const listeners = new Set();
@@ -61,6 +62,7 @@ function normalizeState(parsed) {
         orders: Array.isArray(parsed.orders) ? parsed.orders : initial.orders,
         cart: Array.isArray(parsed.cart) ? parsed.cart : initial.cart,
         currentUserId: typeof parsed.currentUserId === "string" ? parsed.currentUserId : initial.currentUserId,
+        authToken: typeof parsed.authToken === "string" ? parsed.authToken : initial.authToken,
     };
 }
 function load() {
@@ -68,9 +70,33 @@ function load() {
         return initial;
     try {
         const raw = localStorage.getItem(KEY);
-        if (!raw)
-            return initial;
-        return normalizeState(JSON.parse(raw));
+        const sessionRaw = sessionStorage.getItem("user");
+        let sessionUser = null;
+        if (sessionRaw) {
+            try {
+                const parsed = JSON.parse(sessionRaw);
+                if (parsed?.id) {
+                    sessionUser = parsed;
+                }
+            }
+            catch {
+                sessionUser = null;
+            }
+        }
+        const baseState = raw ? normalizeState(JSON.parse(raw)) : initial;
+        const authToken = baseState.authToken || sessionStorage.getItem("token") || null;
+        if (!sessionUser)
+            return { ...baseState, authToken };
+        const users = Array.isArray(baseState.users) ? baseState.users : initial.users;
+        const exists = users.some((u) => u.id === sessionUser.id);
+        return {
+            ...baseState,
+            authToken,
+            users: exists
+                ? users.map((u) => (u.id === sessionUser.id ? { ...u, ...sessionUser } : u))
+                : [...users, sessionUser],
+            currentUserId: sessionUser.id,
+        };
     }
     catch {
         return initial;
@@ -106,7 +132,8 @@ export const store = {
         set((s) => ({ ...s, users: [...s.users, u], currentUserId: u.id, cart: [] }));
         return u;
     },
-    logout() { set((s) => ({ ...s, currentUserId: null, cart: [] })); },
+    logout() { set((s) => ({ ...s, currentUserId: null, authToken: null, cart: [] })); },
+    setAuthToken(token) { set((s) => ({ ...s, authToken: token })); },
     syncUser(user) {
         set((s) => {
             const exists = s.users.some((u) => u.id === user.id);

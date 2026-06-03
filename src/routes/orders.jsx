@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useStore, formatNGN } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { ShoppingBag, UtensilsCrossed } from "lucide-react";
 
 export const Route = createFileRoute("/orders")({
@@ -13,12 +14,20 @@ const BASE = "http://localhost:5000";
 
 function OrdersPage() {
   const navigate = useNavigate();
-  const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+  const [user, setUser] = useState(() => getSessionUser());
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { navigate({ to: "/login" }); return; }
+    if (!user) {
+      const sessionUser = getSessionUser();
+      if (sessionUser) {
+        setUser(sessionUser);
+        return;
+      }
+      navigate({ to: "/login" });
+      return;
+    }
     fetch(`${BASE}/orders/user/${user.id}`)
       .then((res) => res.json())
       .then((data) => setOrders(data.orders ?? []))

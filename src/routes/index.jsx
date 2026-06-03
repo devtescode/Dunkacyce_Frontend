@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Flame, Plus, Search } from "lucide-react";
-import { store, useStore, formatNGN } from "@/lib/store";
+import { store, formatNGN } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -11,13 +12,21 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const navigate = useNavigate();
-  const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+  const [user, setUser] = useState(() => getSessionUser());
   const [foods, setFoods] = useState([]);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    if (!user) navigate({ to: "/login" });
+    if (!user) {
+      const sessionUser = getSessionUser();
+      if (sessionUser) {
+        setUser(sessionUser);
+        store.syncUser(sessionUser);
+        return;
+      }
+      navigate({ to: "/login" });
+    }
   }, [user, navigate]);
 
   useEffect(() => {

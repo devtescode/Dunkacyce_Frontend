@@ -1,16 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore, formatNGN } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 export const Route = createFileRoute("/payments")({
     head: () => ({ meta: [{ title: "Payment History — Dunnkayce" }] }),
     component: PaymentsPage,
 });
 function PaymentsPage() {
     const navigate = useNavigate();
-    const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
-    const orders = useStore((s) => (user ? s.orders.filter((o) => o.userId === user.id) : []));
-    useEffect(() => { if (!user)
-        navigate({ to: "/login" }); }, [user, navigate]);
+    const [user, setUser] = useState(() => getSessionUser());
+    const orders = useStore((s) => (user ? (Array.isArray(s.orders) ? s.orders.filter((o) => o.userId === user.id) : []) : []));
+    useEffect(() => {
+        if (!user) {
+            const sessionUser = getSessionUser();
+            if (sessionUser) {
+                setUser(sessionUser);
+                return;
+            }
+            navigate({ to: "/login" });
+        }
+    }, [user, navigate]);
     if (!user)
         return null;
     const color = (s) => s === "Paid" ? "bg-success/15 text-success" : s === "Pending" ? "bg-warning/20 text-warning-foreground" : "bg-destructive/15 text-destructive";

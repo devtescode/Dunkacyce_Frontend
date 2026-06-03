@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { store, useStore, formatNGN, HOSTELS, DELIVERY_FEE } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 export const Route = createFileRoute("/cart")({
     head: () => ({ meta: [{ title: "Cart — Dunnkayce" }] }),
@@ -9,13 +10,22 @@ export const Route = createFileRoute("/cart")({
 });
 function CartPage() {
     const navigate = useNavigate();
-    const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+    const [user, setUser] = useState(() => getSessionUser());
     const cart = useStore((s) => s.cart);
     const foods = useStore((s) => s.foods);
     const [hostel, setHostel] = useState(HOSTELS[0]);
     const [room, setRoom] = useState("");
-    useEffect(() => { if (!user)
-        navigate({ to: "/login" }); }, [user, navigate]);
+    useEffect(() => {
+      if (!user) {
+        const sessionUser = getSessionUser();
+        if (sessionUser) {
+          setUser(sessionUser);
+          store.syncUser(sessionUser);
+          return;
+        }
+        navigate({ to: "/login" });
+      }
+    }, [user, navigate]);
     if (!user)
         return null;
     const items = cart.map((c) => ({ ...c, food: foods.find((f) => f.id === c.foodId) })).filter((i) => i.food);

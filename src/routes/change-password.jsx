@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { store, useStore } from "@/lib/store";
+import { store } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 export const Route = createFileRoute("/change-password")({
     head: () => ({ meta: [{ title: "Change Password — Dunnkayce" }] }),
@@ -8,10 +9,19 @@ export const Route = createFileRoute("/change-password")({
 });
 function ChangePasswordPage() {
     const navigate = useNavigate();
-    const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+    const [user, setUser] = useState(() => getSessionUser());
     const [f, setF] = useState({ old: "", next: "", confirm: "" });
-    useEffect(() => { if (!user)
-        navigate({ to: "/login" }); }, [user, navigate]);
+    useEffect(() => {
+        if (!user) {
+            const sessionUser = getSessionUser();
+            if (sessionUser) {
+                setUser(sessionUser);
+                store.syncUser(sessionUser);
+                return;
+            }
+            navigate({ to: "/login" });
+        }
+    }, [user, navigate]);
     if (!user)
         return null;
     const submit = (e) => {

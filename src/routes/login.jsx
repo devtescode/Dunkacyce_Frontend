@@ -41,13 +41,22 @@ function LoginPage() {
         return toast.error(data.message || "Login failed");
       }
 
-      toast.success(`Welcome ${data.user.fullName} 🎉`);
+      const token = data.token ?? data.accessToken ?? "";
+      const currentUser = data.user ?? data.admin ?? null;
+
+      if (!currentUser) {
+        return toast.error("Login failed: invalid user data");
+      }
+
+      toast.success(`Welcome ${currentUser.fullName} 🎉`);
 
       // Sync backend user into local store so dashboard can read the current user.
-      store.syncUser(data.user);
-
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
+      store.syncUser(currentUser);
+      if (token) {
+        store.setAuthToken(token);
+        sessionStorage.setItem("token", token);
+      }
+      sessionStorage.setItem("user", JSON.stringify(currentUser));
 
       navigate({ to: "/user-dashboard", replace: true });
     } catch (err) {

@@ -1,10 +1,10 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts, } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { store } from "@/lib/store";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import { Toaster } from "sonner";
 function NotFoundComponent() {
     return (<div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -67,21 +67,42 @@ function RootShell({ children }) {
 }
 function RootComponent() {
     const { queryClient } = Route.useRouteContext();
+    const [sessionLoaded, setSessionLoaded] = useState(false);
+
+    useEffect(() => {
+      const token = sessionStorage.getItem("token") || window.localStorage.getItem("authToken") || store.get().authToken;
+      const stored = sessionStorage.getItem("user");
+
+      if (stored) {
+        try {
+          const sessionUser = JSON.parse(stored);
+          if (sessionUser?.id) {
+            store.syncUser(sessionUser);
+          }
+        }
+        catch {
+          // ignore invalid session data
+        }
+      }
+
+      if (token && !sessionStorage.getItem("token")) {
+        sessionStorage.setItem("token", token);
+      }
+
+      if (!token) {
+        sessionStorage.removeItem("user");
+      }
+
+      setSessionLoaded(true);
+    }, []);
+
     return (<QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
         <Navbar />
-        <div className="flex-1"><Outlet /></div>
-        <RouteAwareFooter />
+        <div className="flex-1">
+          {sessionLoaded ? <Outlet /> : <div className="flex min-h-screen items-center justify-center bg-background"><div className="text-sm text-muted-foreground">Restoring session…</div></div>}
+        </div>
       </div>
       <Toaster richColors position="top-center"/>
     </QueryClientProvider>);
-}
-function RouteAwareFooter() {
-    const router = useRouter();
-    const path = router.state.location.pathname;
-    if (path === "/login" || path === "/signup" || path === "/adminlogin" || path === "/admin-dashboard" || path.startsWith("/admin-dashboard/")
-      
-    )
-        return null;
-    return <Footer />;
 }

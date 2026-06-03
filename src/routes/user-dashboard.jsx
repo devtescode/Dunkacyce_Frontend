@@ -1,8 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Flame, Plus, Search } from "lucide-react";
-import { store, useStore, formatNGN } from "@/lib/store";
+import { store } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
+
+const BASE = "http://localhost:5000";
+const normalizeFood = (food) => ({
+  ...food,
+  id: food._id ?? food.id,
+  image: food.imageUrl ?? food.image ?? "",
+  description: food.description ?? food.name ?? "",
+  category: food.category ?? "Foods",
+  dailyLimit:
+    typeof food.dailyLimit === "number"
+      ? food.dailyLimit
+      : food.category === "Protein"
+      ? 3
+      : 10,
+});
 
 export const Route = createFileRoute("/user-dashboard")({
   head: () => ({
@@ -20,12 +36,9 @@ export const Route = createFileRoute("/user-dashboard")({
 function UserDashboard() {
   const navigate = useNavigate();
 
-  const user = useStore(
-    (s) => (Array.isArray(s.users) ? s.users : []).find((u) => u.id === s.currentUserId) ?? null
-  );
-
-  const foods = useStore((s) => (Array.isArray(s.foods) ? s.foods : []));
-  const orders = useStore((s) => (Array.isArray(s.orders) ? s.orders : []));
+  const [user, setUser] = useState(() => getSessionUser());
+  const [foods, setFoods] = useState([]);
+  const [loadingFoods, setLoadingFoods] = useState(true);
 
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
@@ -33,24 +46,11 @@ function UserDashboard() {
 
   // 🔐 AUTH GUARD
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
-
-    if (!token) {
-      navigate({ to: "/login", replace: true });
-      return;
-    }
-
     if (!user) {
-      const stored = sessionStorage.getItem("user");
-      if (stored) {
-        try {
-          const sessionUser = JSON.parse(stored);
-          if (sessionUser?.id) {
-            store.syncUser(sessionUser);
-          }
-        } catch {
-          // ignore invalid session data
-        }
+      const sessionUser = getSessionUser();
+      if (sessionUser) {
+        setUser(sessionUser);
+        store.syncUser(sessionUser);
       }
     }
 
@@ -62,6 +62,29 @@ function UserDashboard() {
       navigate({ to: "/login", replace: true });
     }
   }, [hydrated, user, navigate]);
+
+  useEffect(() => {
+    const fetchFoods = async () => {
+      try {
+        setLoadingFoods(true);
+        const res = await fetch(`${BASE}/food`);
+        const data = await res.json();
+        const items = Array.isArray(data)
+          ? data
+          : Array.isArray(data.foods)
+          ? data.foods
+          : [];
+        setFoods(items.map(normalizeFood));
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load menu. Refresh to try again.");
+      } finally {
+        setLoadingFoods(false);
+      }
+    };
+
+    fetchFoods();
+  }, []);
 
   const userFirstName = user?.fullName?.split(" ")[0] ?? "there";
   const filtered = useMemo(
@@ -144,13 +167,19 @@ function UserDashboard() {
 
       {/* FOOD LIST */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {loadingFoods && (
+          <div className="col-span-full text-center text-muted-foreground py-12">
+            Loading menu...
+          </div>
+        )}
+
         {filtered.map((f) => {
           const ordered = store.todayOrderedQty(f.id);
           const left = f.dailyLimit - ordered;
           return <FoodCard key={f.id} food={f} left={left} />;
         })}
 
-        {filtered.length === 0 && (
+        {!loadingFoods && filtered.length === 0 && (
           <div className="col-span-full text-center text-muted-foreground py-12">
             No meals found.
           </div>
@@ -186,7 +215,7 @@ function FoodCard({ food, left }) {
     <article className="group overflow-hidden rounded-2xl border bg-card transition hover:shadow-lg hover:-translate-y-0.5">
       <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
         <img
-          src={food.image}
+          src={food.imageUrl ?? food.image}
           alt={food.name}
           className="h-full w-full object-cover transition group-hover:scale-105"
         />

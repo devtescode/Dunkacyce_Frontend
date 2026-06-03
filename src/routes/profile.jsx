@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { store, useStore } from "@/lib/store";
+import { store } from "@/lib/store";
+import { getSessionUser, setSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 export const Route = createFileRoute("/profile")({
     head: () => ({ meta: [{ title: "Profile — Dunnkayce" }] }),
@@ -8,19 +9,29 @@ export const Route = createFileRoute("/profile")({
 });
 function ProfilePage() {
     const navigate = useNavigate();
-    const user = useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null);
+    const [user, setUser] = useState(() => getSessionUser());
     const [form, setForm] = useState({ fullName: "", email: "", phone: "", gender: "Male" });
     useEffect(() => {
-        if (!user)
+        if (!user) {
+            const sessionUser = getSessionUser();
+            if (sessionUser) {
+                setUser(sessionUser);
+                setForm({ fullName: sessionUser.fullName, email: sessionUser.email, phone: sessionUser.phone, gender: sessionUser.gender });
+                store.syncUser(sessionUser);
+                return;
+            }
             navigate({ to: "/login" });
-        else
+        } else {
             setForm({ fullName: user.fullName, email: user.email, phone: user.phone, gender: user.gender });
+        }
     }, [user, navigate]);
     if (!user)
         return null;
     const save = (e) => {
         e.preventDefault();
         store.updateProfile(form);
+        setSessionUser(form);
+        setUser(form);
         toast.success("Profile updated");
     };
     return (<main className="mx-auto max-w-2xl px-4 py-8">
