@@ -93,33 +93,40 @@ function CheckoutPage() {
   const total = subtotal + DELIVERY_FEE;
 
   // 💳 PAY / PLACE ORDER
-  const pay = () => {
-    setPlacing(true);
+  const pay = async () => {
+    try {
+      setPlacing(true);
 
-    setTimeout(() => {
-      const result = {
-        success: true,
-      };
+      const token = sessionStorage.getItem("token");
 
-      setPlacing(false);
-
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-
-      sessionStorage.removeItem("dk_checkout");
-
-      toast.success(
-        method === "Paystack"
-          ? "Payment successful! Order placed."
-          : "Order placed successfully."
+      const res = await fetch(
+        `${BASE}/cart/initialize-payment`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: user.email,
+            amount: total,
+          }),
+        }
       );
 
-      navigate({ to: "/orders" });
-    }, method === "Paystack" ? 800 : 200);
-  };
+      const data = await res.json();
 
+      if (!res.ok) {
+        setPlacing(false);
+        return toast.error(data.message);
+      }
+
+      window.location.href = data.authorization_url;
+    } catch (error) {
+      setPlacing(false);
+      toast.error("Unable to start payment");
+    }
+  };
   const options = [
     {
       id: "Paystack",
@@ -154,7 +161,7 @@ function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8">
       {/* UI UNCHANGED */}
       <button
         onClick={() => navigate({ to: "/cart" })}
@@ -182,18 +189,16 @@ function CheckoutPage() {
               <button
                 key={o.id}
                 onClick={() => setMethod(o.id)}
-                className={`w-full text-left flex gap-4 rounded-xl border-2 p-4 transition ${
-                  active
+                className={`w-full text-left flex gap-4 rounded-xl border-2 p-4 transition ${active
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/40"
-                }`}
+                  }`}
               >
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-lg ${
-                    active
+                  className={`flex h-12 w-12 items-center justify-center rounded-lg ${active
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground"
-                  }`}
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
