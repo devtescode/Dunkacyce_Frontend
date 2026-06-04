@@ -1,6 +1,8 @@
-@import "tailwindcss" source(none);
-@source "../src";
+@import "tailwindcss";
 @import "tw-animate-css";
+
+/* MUST come after imports */
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -70,5 +72,8 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
-  h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: 0.01em; }
+  h1, h2, h3, .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+  }
 }

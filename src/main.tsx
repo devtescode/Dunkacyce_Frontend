@@ -11,8 +11,12 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
+function App() {
+  return <RouterProvider router={router} />;
+}
+
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <App />
   </React.StrictMode>
 );
