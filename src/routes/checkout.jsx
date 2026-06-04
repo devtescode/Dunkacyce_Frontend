@@ -5,7 +5,8 @@ import { formatNGN, DELIVERY_FEE } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
-const BASE = "https://dunkacyce-backend.onrender.com";
+// const BASE = "https://dunkacyce-backend.onrender.com";
+const BASE = "http://localhost:5000";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Dunnkayce" }] }),
@@ -93,26 +94,92 @@ function CheckoutPage() {
   const total = subtotal + DELIVERY_FEE;
 
   // 💳 PAY / PLACE ORDER
+  // const pay = async () => {
+  //   try {
+  //     setPlacing(true);
+
+  //     const token = sessionStorage.getItem("token");
+
+  //     const res = await fetch(
+  //       `${BASE}/cart/initialize-payment`,
+  //       {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify({
+  //           email: user.email,
+  //           amount: total,
+  //         }),
+  //       }
+  //     );
+
+  //     const data = await res.json();
+
+  //     if (!res.ok) {
+  //       setPlacing(false);
+  //       return toast.error(data.message);
+  //     }
+
+  //     window.location.href = data.authorization_url;
+  //   } catch (error) {
+  //     setPlacing(false);
+  //     toast.error("Unable to start payment");
+  //   }
+  // };
   const pay = async () => {
     try {
       setPlacing(true);
 
       const token = sessionStorage.getItem("token");
+      const formattedItems = cart.map((i) => ({
+        foodId: i._id,
+        name: i.name,
+        price: i.price,
+        qty: i.quantity,      // ✅ FIX HERE
+        soupType: i.soup || null,
+      }));
 
-      const res = await fetch(
-        `${BASE}/cart/initialize-payment`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            email: user.email,
-            amount: total,
-          }),
-        }
-      );
+      // 1. CREATE ORDER FIRST
+      const orderRes = await fetch(`${BASE}/orders/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          items: formattedItems,   // ✅ FIXED
+          hostel: delivery.hostel,
+          room: delivery.room,
+          total: total,
+          paymentMethod: "Paystack",
+        }),
+      });
+
+      const orderData = await orderRes.json();
+
+      if (!orderRes.ok) {
+        setPlacing(false);
+        return toast.error(orderData.message);
+      }
+
+      const reference = orderData.reference;
+
+      // 2. INITIATE PAYSTACK WITH SAME REFERENCE
+      const res = await fetch(`${BASE}/cart/initialize-payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: user.email,
+          amount: total,
+          reference, // 🔥 IMPORTANT
+        }),
+      });
 
       const data = await res.json();
 
@@ -190,14 +257,14 @@ function CheckoutPage() {
                 key={o.id}
                 onClick={() => setMethod(o.id)}
                 className={`w-full text-left flex gap-4 rounded-xl border-2 p-4 transition ${active
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/40"
                   }`}
               >
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-lg ${active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
                     }`}
                 >
                   <Icon className="h-5 w-5" />
