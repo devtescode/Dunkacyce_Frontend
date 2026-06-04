@@ -21,6 +21,7 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as AdminloginRouteImport } from './routes/adminlogin'
 import { Route as AdminDashboardUserAnalyticsRouteImport } from './routes/admin-dashboard-user-analytics'
 import { Route as AdminDashboardSystemSettingsRouteImport } from './routes/admin-dashboard-system-settings'
+import { Route as AdminDashboardStudentCartRouteImport } from './routes/admin-dashboard-student-cart'
 import { Route as AdminDashboardPaymentTrackingRouteImport } from './routes/admin-dashboard-payment-tracking'
 import { Route as AdminDashboardOrderManagementRouteImport } from './routes/admin-dashboard-order-management'
 import { Route as AdminDashboardImageUploadRouteImport } from './routes/admin-dashboard-image-upload'
@@ -93,6 +94,12 @@ const AdminDashboardSystemSettingsRoute =
     path: '/admin-dashboard-system-settings',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminDashboardStudentCartRoute =
+  AdminDashboardStudentCartRouteImport.update({
+    id: '/admin-dashboard-student-cart',
+    path: '/admin-dashboard-student-cart',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminDashboardPaymentTrackingRoute =
   AdminDashboardPaymentTrackingRouteImport.update({
     id: '/admin-dashboard-payment-tracking',
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/admin-dashboard-image-upload': typeof AdminDashboardImageUploadRoute
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
+  '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/adminlogin': typeof AdminloginRoute
@@ -178,6 +186,7 @@ export interface FileRoutesByTo {
   '/admin-dashboard-image-upload': typeof AdminDashboardImageUploadRoute
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
+  '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/adminlogin': typeof AdminloginRoute
@@ -202,6 +211,7 @@ export interface FileRoutesById {
   '/admin-dashboard-image-upload': typeof AdminDashboardImageUploadRoute
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
+  '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/adminlogin': typeof AdminloginRoute
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-image-upload'
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
+    | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/adminlogin'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-image-upload'
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
+    | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/adminlogin'
@@ -273,6 +285,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-image-upload'
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
+    | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/adminlogin'
@@ -297,6 +310,7 @@ export interface RootRouteChildren {
   AdminDashboardImageUploadRoute: typeof AdminDashboardImageUploadRoute
   AdminDashboardOrderManagementRoute: typeof AdminDashboardOrderManagementRoute
   AdminDashboardPaymentTrackingRoute: typeof AdminDashboardPaymentTrackingRoute
+  AdminDashboardStudentCartRoute: typeof AdminDashboardStudentCartRoute
   AdminDashboardSystemSettingsRoute: typeof AdminDashboardSystemSettingsRoute
   AdminDashboardUserAnalyticsRoute: typeof AdminDashboardUserAnalyticsRoute
   AdminloginRoute: typeof AdminloginRoute
@@ -397,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardSystemSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin-dashboard-student-cart': {
+      id: '/admin-dashboard-student-cart'
+      path: '/admin-dashboard-student-cart'
+      fullPath: '/admin-dashboard-student-cart'
+      preLoaderRoute: typeof AdminDashboardStudentCartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin-dashboard-payment-tracking': {
       id: '/admin-dashboard-payment-tracking'
       path: '/admin-dashboard-payment-tracking'
@@ -473,6 +494,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardImageUploadRoute: AdminDashboardImageUploadRoute,
   AdminDashboardOrderManagementRoute: AdminDashboardOrderManagementRoute,
   AdminDashboardPaymentTrackingRoute: AdminDashboardPaymentTrackingRoute,
+  AdminDashboardStudentCartRoute: AdminDashboardStudentCartRoute,
   AdminDashboardSystemSettingsRoute: AdminDashboardSystemSettingsRoute,
   AdminDashboardUserAnalyticsRoute: AdminDashboardUserAnalyticsRoute,
   AdminloginRoute: AdminloginRoute,

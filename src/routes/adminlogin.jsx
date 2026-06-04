@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import logo from "../assest/elizade_university_ilara_mokin_profile.jpg"
 
 export const Route = createFileRoute("/adminlogin")({
   component: AdminAuthPage,
@@ -139,13 +140,13 @@ function AdminAuthPage() {
 
         {/* HEADER */}
         <div className="text-center mb-8">
-          <div className="h-14 w-14 mx-auto bg-primary text-white flex items-center justify-center rounded-2xl text-3xl">
-            A
+          <div className="h-10 w-20 mx-auto bg-primary text-white flex items-center justify-center rounded-sm text-3xl">
+             <img src={logo} alt="Dunnkayce Logo" className="rounded-sm" />
           </div>
-          <h1 className="text-4xl font-bold">Admin Panel</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-4xl font-bold mt-7">Admin Panel</h1>
+          {/* <p className="text-sm text-muted-foreground">
             {isRegistered ? "Admin Login" : "Create Admin Account"}
-          </p>
+          </p> */}
         </div>
 
         <div className="rounded-2xl border bg-card p-6">

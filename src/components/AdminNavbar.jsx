@@ -5,14 +5,16 @@ import { cn } from "@/lib/utils";
 
 const adminNavItems = [
   { to: "/admin-dashboard", label: "Overview", icon: LayoutDashboard },
-  { to: "/admin-dashboard/food-management", label: "Food Management", icon: Box },
+  { to: "/admin-dashboard-food-management", label: "Food Management", icon: Box },
   // { to: "/admin-dashboard/image-upload", label: "Image Upload", icon: Camera },
-  { to: "/admin-dashboard/order-management", label: "Order Management", icon: Truck },
-  { to: "/admin-dashboard/payment-tracking", label: "Payment Tracking", icon: CreditCard },
-  { to: "/admin-dashboard/user-analytics", label: "User Analytics", icon: Users },
-  { to: "/admin-dashboard/delivery-management", label: "Delivery Management", icon: MapPin },
-  { to: "/admin-dashboard/system-settings", label: "System Settings", icon: ShieldCheck },
-  { to: "/admin-dashboard/change-password", label: "Change Password", icon: KeyRound },
+  { to: "/admin-dashboard-order-management", label: "Order Management", icon: Truck },
+  { to: "/admin-dashboard-student-cart", label: "Student Cart", icon: Truck },
+
+  { to: "/admin-dashboard-payment-tracking", label: "Payment Tracking", icon: CreditCard },
+  { to: "/admin-dashboard-user-analytics", label: "User Analytics", icon: Users },
+  { to: "/admin-dashboard-delivery-management", label: "Delivery Management", icon: MapPin },
+  { to: "/admin-dashboard-system-settings", label: "System Settings", icon: ShieldCheck },
+  { to: "/admin-dashboard-change-password", label: "Change Password", icon: KeyRound },
 ];
 
 export function AdminNavbar({ children }) {
