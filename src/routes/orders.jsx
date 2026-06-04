@@ -8,8 +8,7 @@ export const Route = createFileRoute("/orders")({
   component: OrdersPage,
 });
 
-// const BASE = "http://localhost:5000";
-const BASE = "https://dunkacyce-backend.onrender.com";
+const BASE = "http://localhost:5000";
 
 function OrdersPage() {
   const navigate = useNavigate();
@@ -20,98 +19,83 @@ function OrdersPage() {
   useEffect(() => {
     if (!user) {
       const sessionUser = getSessionUser();
-      if (!sessionUser) {
+      if (sessionUser) {
+        setUser(sessionUser);
+      } else {
         navigate({ to: "/login" });
-        return;
       }
-      setUser(sessionUser);
       return;
     }
 
     fetch(`${BASE}/orders/user/${user.id}`)
       .then((res) => res.json())
-      .then((data) => setOrders(data.orders || []))
+      .then((data) => setOrders(data.orders ?? []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, navigate]);
+
+  if (!user) return null;
 
   if (loading) {
     return (
-      <main className="text-center py-16 text-muted-foreground">
-        Loading orders...
+      <main className="text-center py-20 text-gray-500">
+        Loading your orders...
       </main>
     );
   }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
+    <main className="max-w-4xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold mb-6">Orders History</h1>
 
       {orders.length === 0 ? (
-        <div className="text-center p-10 border rounded-xl">
-          <UtensilsCrossed className="mx-auto mb-3" />
-          <p>No orders yet</p>
-          <Link to="/" className="text-blue-500">Browse Menu</Link>
+        <div className="text-center py-20">
+          <UtensilsCrossed className="mx-auto mb-3 text-gray-400" />
+          <p>No successful payments yet</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {orders.map((o) => (
-            <div key={o._id} className="border rounded-xl p-4 bg-card">
-              
-              {/* HEADER */}
+            <div key={o._id} className="border rounded-xl p-4 bg-white shadow-sm">
+
+              {/* SUCCESS BADGE */}
+              <div className="flex items-center gap-2 mb-3 text-green-600 font-medium">
+                <CheckCircle className="w-4 h-4" />
+                Payment Successful
+              </div>
+
+              {/* ORDER HEADER */}
               <div className="flex justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    #{o._id.slice(-6)} · {new Date(o.createdAt).toLocaleString()}
+                  <p className="text-sm text-gray-500">
+                    #{o._id.slice(-6)}
                   </p>
-
-                  <p className="font-semibold">{o.hostel} - Room {o.room}</p>
-
-                  <p className="text-sm mt-1">
-                    Payment:
-                    <span className={`ml-2 font-semibold ${
-                      o.paymentStatus === "Paid"
-                        ? "text-green-600"
-                        : "text-yellow-500"
-                    }`}>
-                      {o.paymentStatus}
-                    </span>
+                  <p className="font-semibold">
+                    {o.hostel} - Room {o.room}
                   </p>
                 </div>
 
-                {/* AMOUNT PAID */}
-                <div className="text-right">
-                  <p className="text-xl font-bold text-primary">
-                    ₦{o.total}
-                  </p>
-
-                  {o.paymentStatus === "Paid" && (
-                    <p className="text-green-600 flex items-center gap-1 text-sm">
-                      <CheckCircle size={14} />
-                      Paid Successfully
-                    </p>
-                  )}
-                </div>
+                <p className="font-bold text-lg">
+                  ₦{o.total}
+                </p>
               </div>
 
               {/* ITEMS */}
-              <div className="mt-4 border-t pt-3">
-                {o.items.map((it, i) => (
+              <div className="mt-4 space-y-2">
+                {o.items.map((item, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span>
-                      {it.qty}× {it.name}
+                      {item.qty}× {item.name}
                     </span>
-                    <span>₦{it.price * it.qty}</span>
+                    <span>₦{item.price * item.qty}</span>
                   </div>
                 ))}
               </div>
 
-              {/* PAYMENT REF */}
-              {o.reference && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Ref: {o.reference}
-                </p>
-              )}
+              {/* FOOTER */}
+              <div className="mt-3 text-xs text-gray-500">
+                Paid via {o.paymentMethod}
+              </div>
             </div>
           ))}
         </div>
