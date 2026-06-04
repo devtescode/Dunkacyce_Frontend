@@ -5,7 +5,8 @@ import { store } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
-const BASE = "http://localhost:5000";
+// const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 const normalizeFood = (food) => ({
   ...food,
