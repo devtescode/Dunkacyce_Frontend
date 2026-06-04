@@ -5,8 +5,8 @@ import { formatNGN, DELIVERY_FEE } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 
-// const BASE = "https://dunkacyce-backend.onrender.com";
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
+// const BASE = "http://localhost:5000";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Dunnkayce" }] }),
