@@ -1,16 +1,15 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useStore, formatNGN } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
-import { ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { ShoppingBag, UtensilsCrossed, CheckCircle } from "lucide-react";
 
 export const Route = createFileRoute("/orders")({
   head: () => ({ meta: [{ title: "My Orders — Dunnkayce" }] }),
   component: OrdersPage,
 });
 
-const STATUS_STEPS = ["Pending", "Preparing", "Ready", "Delivered"];
-const BASE = "http://localhost:5000";
+// const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function OrdersPage() {
   const navigate = useNavigate();
@@ -21,102 +20,100 @@ function OrdersPage() {
   useEffect(() => {
     if (!user) {
       const sessionUser = getSessionUser();
-      if (sessionUser) {
-        setUser(sessionUser);
+      if (!sessionUser) {
+        navigate({ to: "/login" });
         return;
       }
-      navigate({ to: "/login" });
+      setUser(sessionUser);
       return;
     }
+
     fetch(`${BASE}/orders/user/${user.id}`)
       .then((res) => res.json())
-      .then((data) => setOrders(data.orders ?? []))
+      .then((data) => setOrders(data.orders || []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
-  }, [user, navigate]);
-
-  if (!user) return null;
+  }, [user]);
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-16 text-center text-muted-foreground">
-        Loading your orders...
+      <main className="text-center py-16 text-muted-foreground">
+        Loading orders...
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="font-display text-4xl mb-6">Orders History</h1>
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Orders History</h1>
 
       {orders.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-16 text-center flex flex-col items-center gap-4">
-          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-            <UtensilsCrossed className="h-9 w-9 text-primary/60" />
-          </div>
-          <div>
-            <p className="text-xl font-semibold">No orders yet</p>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-              Looks like your stomach hasn't spoken yet. Browse the menu and place your first order!
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
-          >
-            <ShoppingBag className="h-4 w-4" /> Browse menu
-          </Link>
+        <div className="text-center p-10 border rounded-xl">
+          <UtensilsCrossed className="mx-auto mb-3" />
+          <p>No orders yet</p>
+          <Link to="/" className="text-blue-500">Browse Menu</Link>
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((o) => {
-            const stepIdx = STATUS_STEPS.indexOf(o.status);
-            return (
-              <article key={o._id} className="rounded-xl border bg-card p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      #{o._id.slice(-6).toUpperCase()} · {new Date(o.createdAt).toLocaleString()}
-                    </p>
-                    <p className="font-semibold mt-1">{o.hostel} — Room {o.room}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {o.paymentMethod} ·{" "}
-                      <span className={
-                        o.paymentStatus === "Paid" ? "text-success font-semibold" :
-                        o.paymentStatus === "Pending" ? "text-warning-foreground" :
-                        "text-destructive"
-                      }>{o.paymentStatus}</span>
-                    </p>
-                  </div>
-                  <span className="font-display text-2xl text-primary">{formatNGN(o.total)}</span>
+          {orders.map((o) => (
+            <div key={o._id} className="border rounded-xl p-4 bg-card">
+              
+              {/* HEADER */}
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    #{o._id.slice(-6)} · {new Date(o.createdAt).toLocaleString()}
+                  </p>
+
+                  <p className="font-semibold">{o.hostel} - Room {o.room}</p>
+
+                  <p className="text-sm mt-1">
+                    Payment:
+                    <span className={`ml-2 font-semibold ${
+                      o.paymentStatus === "Paid"
+                        ? "text-green-600"
+                        : "text-yellow-500"
+                    }`}>
+                      {o.paymentStatus}
+                    </span>
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-1 mb-4">
-                  {STATUS_STEPS.map((s, i) => (
-                    <div key={s} className="flex items-center flex-1 last:flex-none">
-                      <div className={`flex-1 h-1.5 rounded-full ${i <= stepIdx ? "bg-primary" : "bg-secondary"}`} />
-                      <span className={`ml-1.5 mr-1.5 text-[11px] font-medium ${i <= stepIdx ? "text-primary" : "text-muted-foreground"}`}>{s}</span>
-                    </div>
-                  ))}
-                </div>
+                {/* AMOUNT PAID */}
+                <div className="text-right">
+                  <p className="text-xl font-bold text-primary">
+                    ₦{o.total}
+                  </p>
 
-                <ul className="text-sm text-muted-foreground space-y-1 border-t pt-3">
-                  {o.items.map((it, i) => (
-                    <li key={i}>
+                  {o.paymentStatus === "Paid" && (
+                    <p className="text-green-600 flex items-center gap-1 text-sm">
+                      <CheckCircle size={14} />
+                      Paid Successfully
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* ITEMS */}
+              <div className="mt-4 border-t pt-3">
+                {o.items.map((it, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span>
                       {it.qty}× {it.name}
-                      {it.soupType ? ` (${it.soupType})` : ""}
-                      <span className="float-right">{formatNGN(it.price * it.qty)}</span>
-                    </li>
-                  ))}
-                  {o.deliveryFee ? (
-                    <li className="text-xs pt-1">
-                      Delivery fee <span className="float-right">{formatNGN(o.deliveryFee)}</span>
-                    </li>
-                  ) : null}
-                </ul>
-              </article>
-            );
-          })}
+                    </span>
+                    <span>₦{it.price * it.qty}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* PAYMENT REF */}
+              {o.reference && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Ref: {o.reference}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </main>
