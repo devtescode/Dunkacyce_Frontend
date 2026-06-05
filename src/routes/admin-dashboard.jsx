@@ -134,7 +134,7 @@ function AdminDashboardPage() {
           {[
             { label: "Food Management", path: "/admin-dashboard-food-management" },
             { label: "Order Management", path: "/admin-dashboard-order-management" },
-            { label: "Payment Tracking", path: "/admin-dashboard-payment-tracking" },
+            { label: "Student cart", path: "/admin-dashboard-student-cart" },
             { label: "System Settings", path: "/admin-dashboard-system-settings" },
           ].map((item) => (
             <Link
