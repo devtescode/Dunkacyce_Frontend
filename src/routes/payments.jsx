@@ -239,12 +239,14 @@ function PaymentsPage() {
                             </div>
                         </div>
                         {/* CLOSE BUTTON */}
-                        <button
-                            onClick={() => setSelectedOrder(null)}
-                            className="mt-6 px-4 bg-black text-white py-2 rounded-lg relative z-10"
-                        >
-                            Close
-                        </button>
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={() => setSelectedOrder(null)}
+                                className="px-4 bg-black text-white py-2 rounded-lg relative z-10"
+                            >
+                                 Close <span className="ml-1">✕</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
