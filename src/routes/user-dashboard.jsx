@@ -156,7 +156,7 @@ function UserDashboard() {
           >
             {rushHour === true
               ? "Rush Hour is active. You can place orders online."
-              : "Online ordering is currently unavailable. Please visit Dunnkayce physically."}
+              : "crowds are currently low. Please visit Dunnkayce physically."}
           </div>
         </div>
       </section>
