@@ -9,9 +9,11 @@ export const Route = createFileRoute("/admin-dashboard")({
 });
 
 const BASE = "https://dunkacyce-backend.onrender.com";
+// const BASE = "localhost:5000";
 
 function AdminDashboardPage() {
   const navigate = useNavigate();
+  const [rushHour, setRushHour] = useState(false);
 
   const [admin, setAdmin] = useState(null);
   const [stats, setStats] = useState({
@@ -62,6 +64,49 @@ function AdminDashboardPage() {
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    const fetchRushHour = async () => {
+      try {
+        const res = await fetch(
+          `${BASE}/settings/rush-hour`,
+        );
+
+        const data = await res.json();
+
+        if (res.ok) {
+          setRushHour(data.rushHour);
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    fetchRushHour();
+  }, []);
+
+  // Toggle rush hour
+  const toggleRushHour = async () => {
+    try {
+      const token = sessionStorage.getItem("adminToken");
+
+      const res = await fetch(`${BASE}/settings/rush-hour`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setRushHour(data.rushHour);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   if (!admin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -87,7 +132,26 @@ function AdminDashboardPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 All core admin flows are available from the sidebar navigation.
               </p>
+              <div
+                className={`mt-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${rushHour
+                    ? "bg-green-100 text-green-700"
+                    : "bg-red-100 text-red-700"
+                  }`}
+              >
+                {rushHour
+                  ? "🟢 Rush Hour Active"
+                  : "🔴 Rush Hour Inactive"}
+              </div>
+              
             </div>
+            <button
+              onClick={toggleRushHour}
+              className="rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700"
+            >
+              {rushHour
+                ? "Disable Rush Hour"
+                : "Enable Rush Hour"}
+            </button>
           </div>
         </div>
 

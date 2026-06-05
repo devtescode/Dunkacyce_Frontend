@@ -18,8 +18,8 @@ const normalizeFood = (food) => ({
     typeof food.dailyLimit === "number"
       ? food.dailyLimit
       : food.category === "Protein"
-      ? 3
-      : 10,
+        ? 3
+        : 10,
 });
 
 export const Route = createFileRoute("/user-dashboard")({
@@ -41,6 +41,7 @@ function UserDashboard() {
   const [user, setUser] = useState(() => getSessionUser());
   const [foods, setFoods] = useState([]);
   const [loadingFoods, setLoadingFoods] = useState(true);
+  const [rushHour, setRushHour] = useState(false);
 
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
@@ -74,8 +75,8 @@ function UserDashboard() {
         const items = Array.isArray(data)
           ? data
           : Array.isArray(data.foods)
-          ? data.foods
-          : [];
+            ? data.foods
+            : [];
 
         setFoods(items.map(normalizeFood));
       } catch (error) {
@@ -86,6 +87,19 @@ function UserDashboard() {
     };
 
     fetchFoods();
+  }, []);
+  useEffect(() => {
+    const fetchRushHour = async () => {
+      const res = await fetch(`${BASE}/settings/rush-hour`);
+      const data = await res.json();
+      setRushHour(data.rushHour);
+    };
+
+    fetchRushHour();
+
+    const interval = setInterval(fetchRushHour, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const userFirstName = user?.fullName?.split(" ")[0] ?? "there";
@@ -134,6 +148,16 @@ function UserDashboard() {
             Browse the menu, fill your cart, pay, and we'll deliver straight to
             your hostel room.
           </p>
+          <div
+            className={`mt-4 inline-flex rounded-xl px-4 py-2 text-sm font-semibold ${rushHour === true
+                ? "bg-white-500/20 text-green-100"
+                : "bg-white-500/20 text-black-100"
+              }`}
+          >
+            {rushHour === true
+              ? "Rush Hour is active. You can place orders online."
+              : "Online ordering is currently unavailable. Please visit Dunnkayce physically."}
+          </div>
         </div>
       </section>
 
@@ -144,11 +168,10 @@ function UserDashboard() {
             <button
               key={c}
               onClick={() => setCat(c)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                cat === c
-                  ? "bg-foreground text-background"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${cat === c
+                ? "bg-foreground text-background"
+                : "bg-secondary text-secondary-foreground hover:bg-accent"
+                }`}
             >
               {c}
             </button>
@@ -248,8 +271,8 @@ function FoodCard({ food, left }) {
     food.status === "Available"
       ? "bg-success/15 text-success"
       : food.status === "Preparing"
-      ? "bg-warning/20 text-warning-foreground"
-      : "bg-destructive/15 text-destructive";
+        ? "bg-warning/20 text-warning-foreground"
+        : "bg-destructive/15 text-destructive";
 
   return (
     <article className="group overflow-hidden rounded-2xl border bg-card transition hover:shadow-lg hover:-translate-y-0.5">
