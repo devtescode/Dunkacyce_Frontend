@@ -9,7 +9,7 @@ export const Route = createFileRoute("/admin-dashboard-food-management")({
   component: FoodManagementPage,
 });
 
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function FoodManagementPage() {
   const [foods, setFoods] = useState([]);

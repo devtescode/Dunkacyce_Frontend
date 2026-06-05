@@ -8,7 +8,7 @@ export const Route = createFileRoute("/payments")({
     component: PaymentsPage,
 });
 
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function PaymentsPage() {
     const navigate = useNavigate();

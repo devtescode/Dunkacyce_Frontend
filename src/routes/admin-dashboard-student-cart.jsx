@@ -9,7 +9,7 @@ export const Route = createFileRoute("/admin-dashboard-student-cart")({
   component: StudentCartPage,
 });
 
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function StudentCartPage() {
   const [carts, setCarts] = useState([]);

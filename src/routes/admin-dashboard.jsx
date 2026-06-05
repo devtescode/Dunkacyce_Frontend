@@ -8,7 +8,7 @@ export const Route = createFileRoute("/admin-dashboard")({
   component: AdminDashboardPage,
 });
 
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function AdminDashboardPage() {
   const navigate = useNavigate();

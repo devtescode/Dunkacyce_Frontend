@@ -9,7 +9,7 @@ export const Route = createFileRoute("/admin-dashboard-order-management")({
   component: OrderManagementPage,
 });
 
-const BASE = "http://localhost:5000";
+const BASE = "https://dunkacyce-backend.onrender.com";
 
 function OrderManagementPage() {
   const [orders, setOrders] = useState([]);

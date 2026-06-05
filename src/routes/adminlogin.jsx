@@ -22,7 +22,7 @@ function AdminAuthPage() {
   useEffect(() => {
     const checkAdmin = async () => {
       try {
-        const res = await fetch("http://localhost:5000/admin/exists");
+        const res = await fetch("https://dunkacyce-backend.onrender.com/admin/exists");
 
         const data = await res.json();
 
@@ -52,7 +52,7 @@ function AdminAuthPage() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://localhost:5000/admin/register", {
+      const res = await fetch("https://dunkacyce-backend.onrender.com/admin/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -88,7 +88,7 @@ function AdminAuthPage() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://localhost:5000/admin/login", {
+      const res = await fetch("https://dunkacyce-backend.onrender.com/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
