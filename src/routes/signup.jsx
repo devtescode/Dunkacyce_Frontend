@@ -77,7 +77,7 @@ function SignupPage() {
         <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-br from-accent/40 via-background to-secondary">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="inline-flex h-10 w-20 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-display text-3xl mb-3">
+                    <div className="inline-flex h-10 w-20 items-center justify-center rounded-2xl  font-display text-3xl mb-3">
 
                         <img src={logo} alt="Dunnkayce Logo" className="rounded-sm" />
                     </div>
