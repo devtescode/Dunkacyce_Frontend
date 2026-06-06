@@ -3,6 +3,7 @@ import { useState } from "react";
 import { store } from "@/lib/store";
 import { setSessionUser } from "@/lib/session";
 import { toast } from "sonner";
+import logo from "../assest/elizade_university_ilara_mokin_profile.jpg"
 
 export const Route = createFileRoute("/signup")({
     head: () => ({ meta: [{ title: "Sign up — Dunnkayce" }] }),
@@ -60,8 +61,8 @@ function SignupPage() {
             setSessionUser(normalizedUser);
 
             if (token) {
-              store.setAuthToken(token);
-              sessionStorage.setItem("token", token);
+                store.setAuthToken(token);
+                sessionStorage.setItem("token", token);
             }
 
             navigate({ to: "/" });
@@ -76,8 +77,9 @@ function SignupPage() {
         <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-br from-accent/40 via-background to-secondary">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-display text-3xl mb-3">
-                        D
+                    <div className="inline-flex h-10 w-20 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-display text-3xl mb-3">
+
+                        <img src={logo} alt="Dunnkayce Logo" className="rounded-sm" />
                     </div>
                     <h1 className="font-display text-4xl">Dunnkayce</h1>
                     <p className="text-sm text-muted-foreground">
