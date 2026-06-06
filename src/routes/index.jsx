@@ -129,8 +129,8 @@ function Landing() {
         {/* Mobile drawer */}
         {mobileOpen && (
           <div className="md:hidden bg-white border-t border-stone-100 px-6 py-4 flex flex-col gap-3">
-            <button onClick={() => { goMenu(); setMobileOpen(false); }}
-              className="text-sm font-medium text-stone-600 text-left py-2 hover:text-stone-900">Menu</button>
+            {/* <button onClick={() => { goMenu(); setMobileOpen(false); }}
+              className="text-sm font-medium text-stone-600 text-left py-2 hover:text-stone-900">Menu</button> */}
             <a href="#how-it-works" onClick={() => setMobileOpen(false)}
               className="text-sm font-medium text-stone-600 py-2 hover:text-stone-900">How it works</a>
             <a href="#reviews" onClick={() => setMobileOpen(false)}
