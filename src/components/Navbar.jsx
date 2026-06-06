@@ -6,7 +6,7 @@ import { clearSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { to: "/", label: "Home", icon: Home },
+  { to: "/user-dashboard", label: "Home", icon: Home },
   { to: "/cart", label: "Cart", icon: ShoppingCart },
   { to: "/orders", label: "Orders", icon: Package },
   { to: "/payments", label: "Payments", icon: CreditCard },
