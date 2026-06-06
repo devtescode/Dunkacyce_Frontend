@@ -271,7 +271,7 @@ function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {[
             { icon: <Clock className="w-5 h-5" />, title: "Daily Fresh", desc: "Cooked from scratch every morning. No leftovers, no shortcuts.", iconBg: "bg-orange-100 text-orange-600" },
-            { icon: <MapPin className="w-5 h-5" />, title: "Hostel-to-Door", desc: "We deliver to MH1, MH2, FH1, FH2 and FH3. Just give us your room.", iconBg: "bg-sky-100 text-sky-600" },
+            { icon: <MapPin className="w-5 h-5" />, title: "Hostel-to-Door", desc: "We deliver to MH1, MH2, FH1, FH2 and FH3. Just give us your room number.", iconBg: "bg-sky-100 text-sky-600" },
             { icon: <ShieldCheck className="w-5 h-5" />, title: "Pay Your Way", desc: "Paystack for instant. Moniepoint transfer with admin verification.", iconBg: "bg-emerald-100 text-emerald-600" },
           ].map((f, i) => (
             <div key={i} className="bg-white border border-stone-200 rounded-2xl p-6 hover:shadow-md hover:border-stone-300 transition-all">
