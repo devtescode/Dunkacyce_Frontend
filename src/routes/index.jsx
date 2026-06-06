@@ -166,15 +166,16 @@ function Landing() {
                 Elizade University
               </div>
 
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl tracking-tighter leading-[0.95] mb-5 sm:mb-6 text-stone-900">
-                FUEL YOUR
-                <span className="text-orange-500 ml-3">STUDY</span>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl tracking-tighter leading-[0.95] mb-5 sm:mb-4 text-stone-900">
+                Fresh meals
                 <br />
-                SESSION
+                <span className="text-orange-500">delivered</span> to your
+                <br />
+                hostel room
               </h1>
 
-              <p className="text-stone-500 text-base sm:text-lg leading-relaxed max-w-md mx-auto lg:mx-0 mb-4 sm:mb-5">
-                Fresh campus meals delivered straight to your hostel door.
+              <p className="text-stone-500 text-base sm:text-lg leading-relaxed max-w-md mx-auto lg:mx-0 mb-4 sm:mb-4">
+                Enjoy hot and fresh campus meals delivered straight to your hostel room.
               </p>
 
               {/* BUTTONS */}
@@ -195,7 +196,7 @@ function Landing() {
               </div>
 
               {/* STATS */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mt-5 justify-center lg:justify-start">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mt-4 justify-center lg:justify-start">
 
                 <div className="flex -space-x-2">
                   {["T", "C", "D", "M"].map((l, i) => (
@@ -249,22 +250,22 @@ function Landing() {
       </section>
 
       {/* ══════════ MARQUEE ══════════ */}
-     <div className="border-y border-orange-100 bg-orange-500 py-2 sm:py-3 overflow-hidden">
-  <div className="flex animate-[marquee_28s_linear_infinite] sm:animate-[marquee_22s_linear_infinite] whitespace-nowrap">
+      <div className="border-y border-orange-100 bg-orange-500 py-2 sm:py-3 overflow-hidden">
+        <div className="flex animate-[marquee_28s_linear_infinite] sm:animate-[marquee_22s_linear_infinite] whitespace-nowrap">
 
-    {[...Array(4)].map((_, r) =>
-      ["🍛 Jollof Rice", "🍚 Fried Rice", "🫕 Amala & Ewedu", "🍝 Spaghetti", "🥘 Beans & Plantain", "🍗 Chicken"].map((m, i) => (
-        <span
-          key={`${r}-${i}`}
-          className="text-xs sm:text-sm text-white/80 font-semibold px-4 sm:px-8"
-        >
-          {m} <span className="text-white/30 mx-1 sm:mx-2">·</span>
-        </span>
-      ))
-    )}
+          {[...Array(4)].map((_, r) =>
+            ["🍛 Jollof Rice", "🍚 Fried Rice", "🫕 Amala & Ewedu", "🍝 Spaghetti", "🥘 Beans & Plantain", "🍗 Chicken"].map((m, i) => (
+              <span
+                key={`${r}-${i}`}
+                className="text-xs sm:text-sm text-white/80 font-semibold px-4 sm:px-8"
+              >
+                {m} <span className="text-white/30 mx-1 sm:mx-2">·</span>
+              </span>
+            ))
+          )}
 
-  </div>
-</div>
+        </div>
+      </div>
 
       {/* ══════════ FEATURES ══════════ */}
       <section className="max-w-5xl mx-auto px-6 py-20">
