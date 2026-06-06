@@ -28,7 +28,7 @@ const SAMPLE_MEALS = [
 ];
 
 const TESTIMONIALS = [
-  { name: "Tobi A.", hostel: "MH2", text: "Saved me during exam week. Hot food in 10 mins 🔥" },
+  { name: "Ralpheal A.", hostel: "MH2", text: "Saved me during exam week. Hot food in 10 mins 🔥" },
   { name: "Chisom E.", hostel: "FH1", text: "No more walking to the cafeteria. This is the one." },
   { name: "Damilola O.", hostel: "FH3", text: "Jollof rice was 🔥 and it arrived still warm!" },
 ];
@@ -80,7 +80,7 @@ function Landing() {
 
   const goSignup = () => navigate({ to: "/signup", replace: true });
   const goLogin = () => navigate({ to: "/login", replace: true });
-  const goMenu = () => navigate({ to: "/menu", replace: true });
+  const goMenu = () => navigate({ to: "/", replace: true });
 
   return (
     <div className="min-h-screen bg-amber-50 text-stone-900 font-sans">
@@ -249,17 +249,22 @@ function Landing() {
       </section>
 
       {/* ══════════ MARQUEE ══════════ */}
-      <div className="border-y border-orange-100 bg-orange-500 py-3 overflow-hidden">
-        <div className="flex animate-[marquee_22s_linear_infinite] whitespace-nowrap">
-          {[...Array(4)].map((_, r) =>
-            ["🍛 Jollof Rice", "🍚 Fried Rice", "🫕 Amala & Ewedu", "🍝 Spaghetti", "🥘 Beans & Plantain", "🍗 Chicken"].map((m, i) => (
-              <span key={`${r}-${i}`} className="text-sm text-white/80 font-semibold px-8">
-                {m} <span className="text-white/30 mx-2">·</span>
-              </span>
-            ))
-          )}
-        </div>
-      </div>
+     <div className="border-y border-orange-100 bg-orange-500 py-2 sm:py-3 overflow-hidden">
+  <div className="flex animate-[marquee_28s_linear_infinite] sm:animate-[marquee_22s_linear_infinite] whitespace-nowrap">
+
+    {[...Array(4)].map((_, r) =>
+      ["🍛 Jollof Rice", "🍚 Fried Rice", "🫕 Amala & Ewedu", "🍝 Spaghetti", "🥘 Beans & Plantain", "🍗 Chicken"].map((m, i) => (
+        <span
+          key={`${r}-${i}`}
+          className="text-xs sm:text-sm text-white/80 font-semibold px-4 sm:px-8"
+        >
+          {m} <span className="text-white/30 mx-1 sm:mx-2">·</span>
+        </span>
+      ))
+    )}
+
+  </div>
+</div>
 
       {/* ══════════ FEATURES ══════════ */}
       <section className="max-w-5xl mx-auto px-6 py-20">
@@ -289,7 +294,7 @@ function Landing() {
               <h2 className="text-3xl font-black tracking-tight text-stone-900">WHAT'S COOKING</h2>
             </div>
             <button onClick={goMenu} className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-orange-500 font-semibold transition-colors">
-              View full menu <ChevronRight className="w-4 h-4" />
+              {/* View full menu <ChevronRight className="w-4 h-4" /> */}
             </button>
           </div>
 
@@ -324,10 +329,10 @@ function Landing() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { icon: <Users className="w-5 h-5" />, text: "Sign up with your name, phone & gender" },
+            { icon: <Users className="w-5 h-5" />, text: "Sign up with your Fulname, Email, Phone & Gender" },
             { icon: <Utensils className="w-5 h-5" />, text: "Pick your meals before slots run out" },
-            { icon: <Zap className="w-5 h-5" />, text: "Choose hostel + room, pay with Paystack or Moniepoint" },
-            { icon: <MapPin className="w-5 h-5" />, text: "We deliver to your door — track status live" },
+            { icon: <Zap className="w-5 h-5" />, text: "Choose hostel + room, pay with Paystack" },
+            { icon: <MapPin className="w-5 h-5" />, text: "We deliver to your door track status live" },
           ].map((s, i) => (
             <div key={i} className="flex items-start gap-4 bg-white border border-stone-200 rounded-2xl p-6 hover:border-orange-200 hover:shadow-sm transition-all">
               <div className="flex-shrink-0 flex flex-col items-center gap-2">
@@ -378,7 +383,7 @@ function Landing() {
         <div className="relative bg-orange-500 rounded-3xl px-8 py-16 text-center overflow-hidden shadow-xl shadow-orange-200">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.18),_transparent)]" />
           <div className="relative">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-4">
+            <h2 className="text-3xl md:text-5xl  tracking-tight text-white mb-4">
               HUNGRY RIGHT NOW?
             </h2>
             <p className="text-orange-100 mb-8 max-w-sm mx-auto text-sm leading-relaxed">
