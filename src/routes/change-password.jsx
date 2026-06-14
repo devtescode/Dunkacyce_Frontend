@@ -1,53 +1,187 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { store } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
+
+
+const BASE = "https://dunkacyce-backend.onrender.com";
 export const Route = createFileRoute("/change-password")({
-    head: () => ({ meta: [{ title: "Change Password — Dunnkayce" }] }),
-    component: ChangePasswordPage,
+  head: () => ({
+    meta: [{ title: "Change Password — Dunnkayce" }],
+  }),
+  component: ChangePasswordPage,
 });
+
 function ChangePasswordPage() {
-    const navigate = useNavigate();
-    const [user, setUser] = useState(() => getSessionUser());
-    const [f, setF] = useState({ old: "", next: "", confirm: "" });
-    useEffect(() => {
-        if (!user) {
-            const sessionUser = getSessionUser();
-            if (sessionUser) {
-                setUser(sessionUser);
-                store.syncUser(sessionUser);
-                return;
-            }
-            navigate({ to: "/login" });
+  const navigate = useNavigate();
+
+  const [user, setUser] = useState(() => getSessionUser());
+
+  const [loading, setLoading] = useState(false);
+
+  const [f, setF] = useState({
+    old: "",
+    next: "",
+    confirm: "",
+  });
+
+  useEffect(() => {
+    if (!user) {
+      const sessionUser = getSessionUser();
+
+      if (sessionUser) {
+        setUser(sessionUser);
+        return;
+      }
+
+      navigate({ to: "/login" });
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
+
+  const submit = async (e) => {
+    e.preventDefault();
+
+    if (!f.old.trim()) {
+      return toast.error("Current password is required");
+    }
+
+    if (f.next.length < 6) {
+      return toast.error(
+        "New password must be at least 6 characters"
+      );
+    }
+
+    if (f.next !== f.confirm) {
+      return toast.error("Passwords do not match");
+    }
+
+    try {
+      setLoading(true);
+
+      const token = sessionStorage.getItem("token");
+
+      const response = await fetch(
+        // `http://localhost:5000/dunnkayce/change-password`,
+        `${BASE}/dunnkayce/change-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            oldPassword: f.old,
+            newPassword: f.next,
+          }),
         }
-    }, [user, navigate]);
-    if (!user)
-        return null;
-    const submit = (e) => {
-        e.preventDefault();
-        if (f.next.length < 6)
-            return toast.error("New password must be 6+ characters");
-        if (f.next !== f.confirm)
-            return toast.error("Passwords do not match");
-        const ok = store.changePassword(f.old, f.next);
-        if (!ok)
-            return toast.error("Old password incorrect");
-        toast.success("Password updated");
-        setF({ old: "", next: "", confirm: "" });
-    };
-    return (<main className="mx-auto max-w-md px-4 py-8">
-      <h1 className="font-display text-4xl mb-6">Change Password</h1>
-      <form onSubmit={submit} className="rounded-xl border bg-card p-6 space-y-4">
-        {[
-            { k: "old", l: "Current password" },
-            { k: "next", l: "New password" },
-            { k: "confirm", l: "Confirm new password" },
-        ].map(({ k, l }) => (<label key={k} className="block">
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">{l}</span>
-            <input type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })}/>
-          </label>))}
-        <button className="w-full rounded-lg bg-primary py-2.5 font-semibold text-primary-foreground hover:bg-primary/90">Update password</button>
+      );
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to update password"
+        );
+      }
+
+      toast.success(
+        data.message || "Password updated successfully"
+      );
+
+      setF({
+        old: "",
+        next: "",
+        confirm: "",
+      });
+    } catch (error) {
+      toast.error(
+        error?.message || "Failed to update password"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="mx-auto max-w-md px-4 py-8">
+      <h1 className="font-display mb-6 text-4xl">
+        Change Password
+      </h1>
+
+      <form
+        onSubmit={submit}
+        className="space-y-4 rounded-xl border bg-card p-6"
+      >
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Current Password
+          </span>
+
+          <input
+            type="password"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={f.old}
+            onChange={(e) =>
+              setF({
+                ...f,
+                old: e.target.value,
+              })
+            }
+            placeholder="Enter current password"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            New Password
+          </span>
+
+          <input
+            type="password"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={f.next}
+            onChange={(e) =>
+              setF({
+                ...f,
+                next: e.target.value,
+              })
+            }
+            placeholder="Enter new password"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Confirm New Password
+          </span>
+
+          <input
+            type="password"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={f.confirm}
+            onChange={(e) =>
+              setF({
+                ...f,
+                confirm: e.target.value,
+              })
+            }
+            placeholder="Confirm new password"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-primary py-2.5 font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Updating..." : "Update Password"}
+        </button>
       </form>
-    </main>);
+    </main>
+  );
 }
+
+export default ChangePasswordPage;
