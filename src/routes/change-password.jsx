@@ -113,7 +113,7 @@ function ChangePasswordPage() {
 
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-xl border bg-card p-6"
+        className="space-y-4 rounded-sm border bg-card p-6"
       >
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -175,7 +175,7 @@ function ChangePasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-primary py-2.5 font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className=" rounded-sm bg-primary py-2.5 px-2.5 font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Updating..." : "Update Password"}
         </button>
