@@ -106,8 +106,8 @@ function ChangePasswordPage() {
   };
 
   return (
-    <main className="mx-auto max-w-md px-4 py-8">
-      <h1 className="font-display mb-6 text-4xl">
+    <main className="mx-auto max-w-lg px-4 py-8">
+      <h1 className="font-display mb-4 text-4xl">
         Change Password
       </h1>
 
