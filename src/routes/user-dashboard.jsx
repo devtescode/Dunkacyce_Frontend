@@ -150,8 +150,8 @@ function UserDashboard() {
           </p>
           <div
             className={`mt-4 inline-flex rounded-xl px-4 py-2 text-sm font-semibold ${rushHour === true
-                ? "bg-white-500/20 text-green-100"
-                : "bg-white-500/20 text-black-100"
+              ? "bg-white-500/20 text-green-100"
+              : "bg-white-500/20 text-black-100"
               }`}
           >
             {rushHour === true
@@ -220,6 +220,7 @@ function FoodCard({ food, left }) {
 
   // ✅ FIXED: proper state safety
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const disabled = food.status !== "Available" || left <= 0;
 
@@ -232,11 +233,15 @@ function FoodCard({ food, left }) {
   const add = async () => {
     if (disabled) {
       return toast.error(
-        left <= 0 ? "Daily limit reached" : `Currently ${food.status}`
+        left <= 0
+          ? "Daily limit reached"
+          : `Currently ${food.status}`
       );
     }
 
     try {
+      setLoading(true);
+
       const token = sessionStorage.getItem("token");
 
       const res = await fetch(`${BASE}/cart/add`, {
@@ -260,19 +265,20 @@ function FoodCard({ food, left }) {
 
       toast.success(`${food.name} added (${quantity})`);
 
-      // ✅ IMPORTANT FIX: reset quantity after add
       setQuantity(1);
     } catch (error) {
       toast.error("Network error");
+    } finally {
+      setLoading(false);
     }
   };
 
   const statusColor =
     food.status === "Available"
-      ? "bg-success/15 text-success"
-      : food.status === "Preparing"
-        ? "bg-warning/20 text-warning-foreground"
-        : "bg-destructive/15 text-destructive";
+      ? "bg-green-100 text-green-700"
+      : food.status === "Out of Stock"
+        ? "bg-red-100 text-red-700"
+        : "bg-yellow-100 text-yellow-700";
 
   return (
     <article className="group overflow-hidden rounded-2xl border bg-card transition hover:shadow-lg hover:-translate-y-0.5">
@@ -283,10 +289,11 @@ function FoodCard({ food, left }) {
           className="h-full w-full object-cover transition group-hover:scale-105"
         />
 
-        <span className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}>
+        <span
+          className={`absolute top-3 left-3 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${statusColor}`}
+        >
           {food.status}
         </span>
-
         <span className="absolute top-3 right-3 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold">
           {food.category}
         </span>
@@ -311,13 +318,28 @@ function FoodCard({ food, left }) {
           </button>
         </div>
 
-        <button
+        {/* <button
           onClick={add}
           disabled={disabled}
           className="mt-4 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
           <Plus className="inline h-4 w-4 mr-1" />
           Add to cart
+        </button> */}
+
+        <button
+          onClick={add}
+          disabled={loading || disabled}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-white disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              Adding...
+            </>
+          ) : (
+            "Add to Cart"
+          )}
         </button>
       </div>
     </article>
