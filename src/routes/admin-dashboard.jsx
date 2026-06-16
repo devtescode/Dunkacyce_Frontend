@@ -94,9 +94,9 @@ function AdminDashboardPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
-          body: JSON.stringify({ status: true })
+          Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ status: true }),
       });
 
       const data = await res.json();
@@ -136,15 +136,15 @@ function AdminDashboardPage() {
               </p>
               <div
                 className={`mt-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${rushHour
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
                   }`}
               >
                 {rushHour
                   ? "🟢 Rush Hour Active"
                   : "🔴 Rush Hour Inactive"}
               </div>
-              
+
             </div>
             <button
               onClick={toggleRushHour}
