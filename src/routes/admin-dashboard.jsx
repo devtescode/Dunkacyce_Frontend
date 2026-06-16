@@ -9,7 +9,8 @@ export const Route = createFileRoute("/admin-dashboard")({
 });
 
 const BASE = "https://dunkacyce-backend.onrender.com";
-// const BASE = "localhost:5000";
+// const BASE = "http://localhost:5000";
+
 
 function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -94,6 +95,7 @@ function AdminDashboardPage() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionStorage.getItem("adminToken")}`,
+          body: JSON.stringify({ status: true })
         },
       });
 
