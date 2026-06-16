@@ -457,9 +457,9 @@ function FoodCard({ food }) {
         )}
 
         {/* CATEGORY */}
-        <span className="absolute top-2 right-2 px-2 py-1 text-xs rounded-full bg-black/70 text-white">
-          {food.category}
-        </span>
+       <span className="absolute top-2 right-2 px-2.5 py-1 text-[11px] rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 shadow-sm">
+  {food.category}
+</span>
       </div>
 
       {/* CONTENT */}
