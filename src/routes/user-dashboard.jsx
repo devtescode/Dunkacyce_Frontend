@@ -302,8 +302,8 @@ function UserDashboard() {
             {/* Status Pill */}
             <div
               className={`mt-4 inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold tracking-wide shadow-inner backdrop-blur-md border transition-all duration-500 ${rushHour
-                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
-                  : "bg-amber-500/15 text-amber-300 border-amber-500/20"
+                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
+                : "bg-amber-500/15 text-amber-300 border-amber-500/20"
                 }`}
             >
               <span className="relative flex h-2 w-2">
@@ -328,7 +328,14 @@ function UserDashboard() {
           {/* RIGHT BUTTON */}
           <div className="self-start md:self-auto pt-2 md:pt-0">
             <button
-              onClick={rushHour ? OrderHistory : OrderHistory}
+              onClick={() => {
+                if (!rushHour) {
+                  OrderHistory(); // only navigate in OFF-peak mode
+                } else {
+                  // DO NOTHING OR OPEN MODAL
+                  console.log("Order Online clicked");
+                }
+              }}
               className="group relative flex items-center gap-2 overflow-hidden rounded-2xl bg-white px-6 py-4 text-sm font-bold text-black shadow-xl transition-all duration-300 hover:bg-neutral-50 hover:scale-[1.03] active:scale-[0.98]"
             >
               {rushHour ? (
@@ -457,9 +464,9 @@ function FoodCard({ food }) {
         )}
 
         {/* CATEGORY */}
-       <span className="absolute top-2 right-2 px-2.5 py-1 text-[11px] rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 shadow-sm">
-  {food.category}
-</span>
+        <span className="absolute top-2 right-2 px-2.5 py-1 text-[11px] rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 shadow-sm">
+          {food.category}
+        </span>
       </div>
 
       {/* CONTENT */}
