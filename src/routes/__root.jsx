@@ -12,7 +12,9 @@ import { useEffect, useState } from "react";
 
 import appCss from "../styles.css?url";
 import { store } from "@/lib/store";
+import { getSessionToken, setSessionToken } from "@/lib/session";
 import { Navbar } from "@/components/Navbar";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import { Toaster } from "sonner";
 
 function RootShell({ children }) {
@@ -52,7 +54,7 @@ function RootComponent() {
 
   useEffect(() => {
     const token =
-      sessionStorage.getItem("token") ||
+      getSessionToken() ||
       localStorage.getItem("authToken") ||
       store.get().authToken;
 
@@ -64,7 +66,7 @@ function RootComponent() {
       } catch {}
     }
 
-    if (token) sessionStorage.setItem("token", token);
+    if (token) setSessionToken(token);
     setSessionLoaded(true);
   }, []);
 
@@ -84,7 +86,11 @@ function RootComponent() {
             <Outlet />
           ) : (
             <div className="flex min-h-screen items-center justify-center">
-              Loading...
+              <DunnkayceLoader
+                variant="page"
+                label="Warming up Dunnkayce"
+                caption="Restoring your session, straight from the kitchen."
+              />
             </div>
           )}
         </div>

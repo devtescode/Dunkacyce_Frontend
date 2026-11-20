@@ -1,50 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/AdminShell";
-import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import {
+  useFoodsQuery,
+  useCreateFoodMutation,
+  useUpdateFoodMutation,
+  useDeleteFoodMutation,
+} from "@/lib/api";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
 export const Route = createFileRoute("/admin-dashboard-food-management")({
   head: () => ({ meta: [{ title: "Food Management — Dunnkayce Admin" }] }),
   component: FoodManagementPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-
 function FoodManagementPage() {
-  const [foods, setFoods] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useFoodsQuery();
+  const foods = data ?? [];
+  const loading = isPending;
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const token = sessionStorage.getItem("adminToken");
-
-  const fetchFoods = async () => {
-    try {
-      const res = await fetch(`${BASE}/food`);
-      const data = await res.json();
-      setFoods(data.foods ?? []);
-    } catch {
-      toast.error("Failed to load foods");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFoods();
-  }, []);
+  const deleteMutation = useDeleteFoodMutation();
 
   const deleteFood = async (id, name) => {
     if (!confirm(`Delete ${name}?`)) return;
     try {
-      const res = await fetch(`${BASE}/food/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error();
+      await deleteMutation.mutateAsync(id);
       toast.success("Deleted");
-      setFoods((prev) => prev.filter((f) => f._id !== id));
     } catch {
       toast.error("Failed to delete");
     }
@@ -54,12 +39,7 @@ function FoodManagementPage() {
   const openEdit = (food) => { setEditing(food); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditing(null); };
 
-  const onSaved = (food, isEdit) => {
-    if (isEdit) {
-      setFoods((prev) => prev.map((f) => (f._id === food._id ? food : f)));
-    } else {
-      setFoods((prev) => [food, ...prev]);
-    }
+  const onSaved = () => {
     closeForm();
   };
 
@@ -93,7 +73,7 @@ function FoodManagementPage() {
         <div className="space-y-4">
           {loading && (
             <div className="rounded-3xl border border-input bg-card p-8 text-center text-sm text-muted-foreground">
-              Loading foods...
+              <DunnkayceLoader variant="compact" label="Loading the menu" caption="Plating up every dish." className="w-full justify-center" />
             </div>
           )}
 
@@ -153,7 +133,6 @@ function FoodManagementPage() {
       {showForm && (
         <FoodForm
           initial={editing}
-          token={token}
           onClose={closeForm}
           onSaved={onSaved}
         />
@@ -162,8 +141,10 @@ function FoodManagementPage() {
   );
 }
 
-function FoodForm({ initial, token, onClose, onSaved }) {
+function FoodForm({ initial, onClose, onSaved }) {
   const isEdit = !!initial;
+  const createMutation = useCreateFoodMutation();
+  const updateMutation = useUpdateFoodMutation();
 
   const [form, setForm] = useState({
     name: initial?.name ?? "",
@@ -203,12 +184,7 @@ function FoodForm({ initial, token, onClose, onSaved }) {
 
     try {
       setLoading(true);
-      const url = isEdit ? `${BASE}/food/${initial._id}` : `${BASE}/food`;
-      const method = isEdit ? "PUT" : "POST";
-      let body;
-      const headers = {
-        Authorization: `Bearer ${token}`,
-      };
+      let payload;
 
       if (imageFile) {
         const formData = new FormData();
@@ -219,29 +195,27 @@ function FoodForm({ initial, token, onClose, onSaved }) {
         formData.append("status", form.status);
         formData.append("isSwallow", form.isSwallow ? "true" : "false");
         formData.append("dailyLimit", form.category === "Foods" ? "10" : "3");
-        body = formData;
+        payload = formData;
       } else {
-        headers["Content-Type"] = "application/json";
-        body = JSON.stringify({
+        payload = {
           ...form,
           price: Number(form.price),
           dailyLimit: form.category === "Foods" ? 10 : 3,
-        });
+        };
       }
 
-      const res = await fetch(url, {
-        method,
-        headers,
-        body,
-      });
-
-      const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Failed");
+      const data = isEdit
+        ? await updateMutation.mutateAsync({ id: initial._id, payload })
+        : await createMutation.mutateAsync(payload);
 
       toast.success(isEdit ? "Food updated" : "Food added");
       onSaved(data.food, isEdit);
-    } catch {
-      toast.error("Network error");
+    } catch (error) {
+      if (error?.payload) {
+        toast.error(error?.payload?.message || "Failed");
+      } else {
+        toast.error("Network error");
+      }
     } finally {
       setLoading(false);
     }

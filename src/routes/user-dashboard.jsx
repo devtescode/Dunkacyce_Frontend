@@ -1,12 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Flame, Search, ShoppingBag, Store } from "lucide-react";
+import {
+  ApiError,
+  queryKeys,
+  useAddToCartMutation,
+  useFoodsQuery,
+  useRushHourQuery,
+} from "@/lib/api";
 import { store } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
 import { toast } from "sonner";
 import { socket } from "@/lib/socket";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
-const BASE = "https://dunkacyce-backend.onrender.com";
+// Works whether queryKeys.foods.all is the factory function or the flat key array.
+const foodsQueryKey =
+  typeof queryKeys.foods.all === "function"
+    ? queryKeys.foods.all()
+    : queryKeys.foods.all;
 
 /* ================= NORMALIZE ================= */
 const normalizeFood = (food) => ({
@@ -16,35 +29,26 @@ const normalizeFood = (food) => ({
   category: food.category ?? "Foods",
 });
 
-/* ================= CACHE ================= */
-const CACHE_KEY = "foods_cache";
-
-const saveCache = (foods) =>
-  sessionStorage.setItem(CACHE_KEY, JSON.stringify(foods));
-
-const loadCache = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem(CACHE_KEY)) || [];
-  } catch {
-    return [];
-  }
-};
-
 export const Route = createFileRoute("/user-dashboard")({
   component: UserDashboard,
 });
 
 function UserDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [user, setUser] = useState(() => getSessionUser());
-  const [foods, setFoods] = useState(() => loadCache());
-  const [loadingFoods, setLoadingFoods] = useState(() => loadCache().length === 0);
-
-  const [rushHour, setRushHour] = useState(false);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
   const [hydrated, setHydrated] = useState(false);
+
+  const foodsQuery = useFoodsQuery({ refetchInterval: 5000 });
+  const rushHourQuery = useRushHourQuery({ refetchInterval: 5000 });
+
+  const foodsData = foodsQuery.data ?? [];
+  const foods = useMemo(() => foodsData.map(normalizeFood), [foodsData]);
+  const loadingFoods = foodsQuery.isPending;
+  const rushHour = rushHourQuery.data ?? false;
 
   /* ================= AUTH ================= */
   useEffect(() => {
@@ -62,145 +66,37 @@ function UserDashboard() {
     }
   }, [hydrated, user]);
 
-  /* ================= FETCH ================= */
-  const fetchFoods = async (silent = false) => {
-    try {
-      const res = await fetch(`${BASE}/food`);
-      const data = await res.json();
-
-      console.log("FOODS FETCHED", data.foods);
-
-      const items = Array.isArray(data?.foods)
-        ? data.foods
-        : [];
-
-      const normalized = items.map(normalizeFood);
-
-      setFoods(normalized);
-      saveCache(normalized);
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchFoods(true);
-  }, []);
-
-  /* ================= RUSH HOUR ================= */
-  useEffect(() => {
-    const run = async () => {
-      try {
-        const res = await fetch(`${BASE}/settings/rush-hour`);
-        const data = await res.json();
-        setRushHour(data?.rushHour ?? false);
-      } catch {
-        setRushHour(false);
-      }
-    };
-
-    run();
-    const interval = setInterval(run, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  /* ================= SOCKET FIX (MAIN FIX) ================= */
-  // useEffect(() => {
-  //   if (!socket) return;
-
-  //   const onAdd = (food) => {
-  //     setFoods((prev) => {
-  //       const exists = prev.some((f) => f.id === (food._id || food.id));
-  //       if (exists) return prev;
-
-  //       const updated = [normalizeFood(food), ...prev];
-  //       saveCache(updated);
-  //       return updated;
-  //     });
-  //   };
-
-  //   const onUpdate = (updatedFood) => {
-  //     setFoods((prev) => {
-  //       const updated = prev.map((f) =>
-  //         f.id === (updatedFood._id || updatedFood.id)
-  //           ? normalizeFood(updatedFood)
-  //           : f
-  //       );
-
-  //       saveCache(updated);
-  //       return updated;
-  //     });
-  //   };
-
-  //   const onDelete = (id) => {
-  //     setFoods((prev) => {
-  //       const updated = prev.filter((f) => f.id !== id && f._id !== id);
-  //       saveCache(updated);
-  //       return updated;
-  //     });
-  //   };
-
-  //   socket.off("food_added");
-  //   socket.off("food_updated");
-  //   socket.off("food_deleted");
-
-  //   socket.on("food_added", onAdd);
-  //   socket.on("food_updated", onUpdate);
-  //   socket.on("food_deleted", onDelete);
-
-  //   return () => {
-  //     socket.off("food_added", onAdd);
-  //     socket.off("food_updated", onUpdate);
-  //     socket.off("food_deleted", onDelete);
-  //   };
-  // }, []);
-  /* ================= INITIAL LOAD ================= */
-  useEffect(() => {
-    fetchFoods(true);
-  }, []);
-
   /* ================= SOCKET ================= */
   useEffect(() => {
     if (!socket) return;
 
     const onAdd = (food) => {
-      setFoods((prev) => {
-        const exists = prev.some((f) => f.id === (food._id || food.id));
-        if (exists) return prev;
+      queryClient.setQueryData(foodsQueryKey, (prev = []) => {
+        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
+        const exists = current.some((f) => f.id === (food._id || food.id));
+        if (exists) return current;
 
-        const updated = [normalizeFood(food), ...prev];
-        saveCache(updated);
-        return updated;
+        return [normalizeFood(food), ...current];
       });
     };
 
     const onUpdate = (updatedFood) => {
-      setFoods((prev) => {
-        const updated = prev.map((f) =>
+      queryClient.setQueryData(foodsQueryKey, (prev = []) => {
+        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
+        return current.map((f) =>
           f.id === (updatedFood._id || updatedFood.id)
             ? normalizeFood(updatedFood)
             : f
         );
-
-        saveCache(updated);
-        return updated;
       });
     };
 
     const onDelete = (id) => {
-      setFoods((prev) => {
-        const updated = prev.filter(
-          (f) => f.id !== id && f._id !== id
-        );
-
-        saveCache(updated);
-        return updated;
+      queryClient.setQueryData(foodsQueryKey, (prev = []) => {
+        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
+        return current.filter((f) => f.id !== id && f._id !== id);
       });
     };
-
-    socket.off("food_added");
-    socket.off("food_updated");
-    socket.off("food_deleted");
 
     socket.on("food_added", onAdd);
     socket.on("food_updated", onUpdate);
@@ -211,16 +107,7 @@ function UserDashboard() {
       socket.off("food_updated", onUpdate);
       socket.off("food_deleted", onDelete);
     };
-  }, []);
-
-  /* ================= AUTO REFRESH ================= */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchFoods(true);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [queryClient]);
 
 
   /* ================= FILTER ================= */
@@ -239,7 +126,7 @@ function UserDashboard() {
   if (!hydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        Loading...
+        <DunnkayceLoader variant="page" label="Warming up your dashboard" caption="Getting the campus kitchen ready for you." />
       </div>
     );
   }
@@ -385,7 +272,7 @@ function UserDashboard() {
 
         {loadingFoods && foods.length === 0 && (
           <div className="col-span-full text-center">
-            Loading menu...
+            <DunnkayceLoader variant="compact" label="Loading today's menu" caption="Fresh picks are on the way." className="w-full justify-center" />
           </div>
         )}
 
@@ -402,34 +289,20 @@ function UserDashboard() {
 function FoodCard({ food }) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const { mutateAsync: addToCart } = useAddToCartMutation();
 
   const add = async () => {
     try {
       setLoading(true);
 
-      const token = sessionStorage.getItem("token");
+      await addToCart({ foodId: food.id, quantity });
 
-      const res = await fetch(`${BASE}/cart/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          foodId: food.id,
-          quantity,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) return toast.error(data.message);
-
-      // toast.success("Added to cart");
       toast.success(`${food.name} added to cart`);
       setQuantity(1);
-    } catch {
-      toast.error("Network error");
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Network error"
+      );
     } finally {
       setLoading(false);
     }

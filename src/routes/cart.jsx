@@ -3,10 +3,13 @@ import { useEffect, useState } from "react";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { formatNGN, HOSTELS, DELIVERY_FEE } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
+import {
+  useCurrentUserCartQuery,
+  useUpdateCartQtyMutation,
+  useRemoveFromCartMutation,
+} from "@/lib/api";
 import { toast } from "sonner";
-
-// const BASE = "http://localhost:5000";
-const BASE = "https://dunkacyce-backend.onrender.com";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({ meta: [{ title: "Cart — Dunnkayce" }] }),
@@ -16,9 +19,6 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => getSessionUser());
-
-  const [cart, setCart] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   const [hostel, setHostel] = useState(HOSTELS[0]);
   const [room, setRoom] = useState("");
@@ -35,37 +35,12 @@ function CartPage() {
     }
   }, [user, navigate]);
 
-  // 🔥 FETCH CART FROM BACKEND
-  const fetchCart = async () => {
-    try {
-      setLoading(true);
+  const { data, isPending } = useCurrentUserCartQuery();
+  const { mutateAsync: updateCartQty } = useUpdateCartQtyMutation();
+  const { mutateAsync: removeFromCart } = useRemoveFromCartMutation();
 
-      const token = sessionStorage.getItem("token");
-
-      const res = await fetch(`${BASE}/cart/getusercart`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setCart(data.cart || []);
-      } else {
-        toast.error(data.message || "Failed to load cart");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Network error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
+  const cart = data ?? [];
+  const loading = isPending;
 
   if (!user) return null;
 
@@ -79,47 +54,19 @@ function CartPage() {
   // ➕ UPDATE QTY
   const updateQty = async (id, qty) => {
     try {
-      const token = sessionStorage.getItem("token");
-
-      const res = await fetch(`${BASE}/cart/updatecartqty`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ cartId: id, quantity: qty }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) return toast.error(data.message);
-
-      fetchCart(); // refresh
+      await updateCartQty({ cartId: id, quantity: qty });
     } catch (err) {
-      toast.error("Network error");
+      toast.error(err?.status ? err.message : "Network error");
     }
   };
 
   // 🗑 DELETE ITEM
   const removeItem = async (id) => {
     try {
-      const token = sessionStorage.getItem("token");
-
-      const res = await fetch(`${BASE}/cart/removefromcart/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) return toast.error(data.message);
-
+      await removeFromCart(id);
       toast.success("Removed from cart");
-      fetchCart();
     } catch (err) {
-      toast.error("Network error");
+      toast.error(err?.status ? err.message : "Network error");
     }
   };
   
@@ -165,7 +112,7 @@ function CartPage() {
         {/* CART LIST */}
         <div className="lg:col-span-2 space-y-3">
           {loading ? (
-            <p className="text-muted-foreground">Loading cart...</p>
+            <DunnkayceLoader variant="compact" label="Loading your cart..." caption="Gathering your picks from the kitchen." className="w-full justify-center" />
           ) : (
             cart.map((i) => (
               <div

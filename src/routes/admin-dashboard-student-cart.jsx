@@ -1,37 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/AdminShell";
 import { RefreshCcw, ShoppingCart, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { formatNGN } from "@/lib/store";
+import { useAdminCartsQuery } from "@/lib/api";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
 export const Route = createFileRoute("/admin-dashboard-student-cart")({
   component: StudentCartPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-
 function StudentCartPage() {
-  const [carts, setCarts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchCarts = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${BASE}/admin/carts`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setCarts(data.carts ?? []);
-    } catch {
-      toast.error("Failed to load student carts");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, error, isPending, refetch } = useAdminCartsQuery();
+  const carts = data ?? [];
+  const loading = isPending;
 
   useEffect(() => {
-    fetchCarts();
-  }, []);
+    if (error) toast.error("Failed to load student carts");
+  }, [error]);
 
   // Summary stats
   const totalStudents = carts.length;
@@ -61,7 +48,7 @@ function StudentCartPage() {
               </p>
             </div>
             <button
-              onClick={fetchCarts}
+              onClick={refetch}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
             >
               <RefreshCcw className="h-4 w-4" /> Refresh
@@ -71,7 +58,7 @@ function StudentCartPage() {
           <div className="mt-6 space-y-4">
             {loading && (
               <div className="rounded-3xl border border-input bg-card p-8 text-center text-sm text-muted-foreground">
-                Loading carts...
+                <DunnkayceLoader variant="compact" label="Loading student carts" caption="Checking what's cooking across campus." className="w-full justify-center" />
               </div>
             )}
 

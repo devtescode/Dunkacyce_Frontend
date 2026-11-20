@@ -1,6 +1,13 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  ApiError,
+  useAdminExistsQuery,
+  useAdminLoginMutation,
+  useAdminRegisterMutation,
+} from "@/lib/api";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import logo from "../assest/elizade_university_ilara_mokin_profile.jpg"
 
 export const Route = createFileRoute("/adminlogin")({
@@ -9,7 +16,6 @@ export const Route = createFileRoute("/adminlogin")({
 
 function AdminAuthPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(null); // null = loading check
 
   const [form, setForm] = useState({
@@ -18,26 +24,39 @@ function AdminAuthPage() {
     password: "",
   });
 
+  const {
+    data: adminExists,
+    isPending: isAdminExistsPending,
+    isError: isAdminExistsError,
+  } = useAdminExistsQuery();
+
+  const registerMutation = useAdminRegisterMutation();
+  const loginMutation = useAdminLoginMutation();
+
+  const loading = registerMutation.isPending || loginMutation.isPending;
+
   // 🔥 check if admin exists (safe even if network fails)
   useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const res = await fetch("https://dunkacyce-backend.onrender.com/admin/exists");
+    if (
+      !isAdminExistsPending &&
+      !isAdminExistsError &&
+      typeof adminExists === "boolean"
+    ) {
+      setIsRegistered(adminExists);
+    }
+  }, [adminExists, isAdminExistsPending, isAdminExistsError]);
 
-        const data = await res.json();
+  // ⚡ NETWORK FAIL SAFE: still allow login page
+  useEffect(() => {
+    if (!isAdminExistsError) return;
 
-        setIsRegistered(data.exists);
-      } catch (err) {
-        // ⚡ NETWORK FAIL SAFE: still allow login page
-        toast.error("Network unstable");
-        setTimeout(() => {
-          setIsRegistered(true); // assume admin exists → go login mode
-        }, 800);
-      }
-    };
+    toast.error("Network unstable");
+    const timer = setTimeout(() => {
+      setIsRegistered(true); // assume admin exists → go login mode
+    }, 800);
 
-    checkAdmin();
-  }, []);
+    return () => clearTimeout(timer);
+  }, [isAdminExistsError]);
 
   // =====================
   // REGISTER ADMIN
@@ -50,28 +69,18 @@ function AdminAuthPage() {
     }
 
     try {
-      setLoading(true);
-
-      const res = await fetch("https://dunkacyce-backend.onrender.com/admin/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        return toast.error(data.message || "Registration failed");
-      }
+      await registerMutation.mutateAsync(form);
 
       toast.success("Admin registered 🎉");
 
       setIsRegistered(true); // switch to login UI
     } catch (err) {
+      if (err instanceof ApiError) {
+        return toast.error(err.payload?.message || "Registration failed");
+      }
+
       toast.error("Network error");
       setTimeout(() => navigate({ to: "/adminlogin" }), 800);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -86,22 +95,10 @@ function AdminAuthPage() {
     }
 
     try {
-      setLoading(true);
-
-      const res = await fetch("https://dunkacyce-backend.onrender.com/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-        }),
+      const data = await loginMutation.mutateAsync({
+        email: form.email,
+        password: form.password,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        return toast.error(data.message || "Login failed");
-      }
 
       const admin = data.admin ?? data.user ?? data;
       if (!admin || typeof admin !== "object") {
@@ -115,20 +112,26 @@ function AdminAuthPage() {
 
       navigate({ to: "/admin-dashboard", replace: true });
     } catch (err) {
+      if (err instanceof ApiError) {
+        return toast.error(err.payload?.message || "Login failed");
+      }
+
       toast.error("Network issue");
       setTimeout(() => {
         navigate({ to: "/adminlogin", replace: true });
       }, 800);
-    } finally {
-      setLoading(false);
     }
   };
 
   // loading state
   if (isRegistered === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading admin system...
+      <div className="flex justify-center py-10">
+        <DunnkayceLoader
+          variant="compact"
+          label="Loading admin system"
+          caption="Unlocking the kitchen controls."
+        />
       </div>
     );
   }

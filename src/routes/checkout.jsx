@@ -3,10 +3,14 @@ import { useEffect, useState } from "react";
 import { CreditCard, Wallet, ArrowLeft } from "lucide-react";
 import { formatNGN, DELIVERY_FEE } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
+import {
+  ApiError,
+  useCurrentUserCartQuery,
+  useCreateOrderMutation,
+  useInitializePaymentMutation,
+} from "@/lib/api";
 import { toast } from "sonner";
-
-const BASE = "https://dunkacyce-backend.onrender.com";
-// const BASE = "http://localhost:5000";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Dunnkayce" }] }),
@@ -17,11 +21,18 @@ function CheckoutPage() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(() => getSessionUser());
-  const [cart, setCart] = useState([]);
   const [method, setMethod] = useState("Paystack");
   const [placing, setPlacing] = useState(false);
   const [delivery, setDelivery] = useState(null);
-  const [loading, setLoading] = useState(true);
+
+  const { data: cartData, isPending } = useCurrentUserCartQuery();
+  // Keep the cart visible until payment is initialized; invalidating it here
+  // would collapse the totals mid-checkout.
+  const createOrder = useCreateOrderMutation({ invalidateCart: false });
+  const initializePayment = useInitializePaymentMutation();
+
+  const cart = cartData || [];
+  const loading = isPending;
 
   // 🔐 AUTH + DELIVERY + CART FETCH
   useEffect(() => {
@@ -49,38 +60,7 @@ function CheckoutPage() {
       navigate({ to: "/cart" });
       return;
     }
-
-    fetchCart();
   }, [navigate]);
-
-  // 📦 FETCH CART FROM BACKEND
-  const fetchCart = async () => {
-    try {
-      setLoading(true);
-
-      const token = sessionStorage.getItem("token");
-
-      const res = await fetch(`${BASE}/cart/getusercart`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.message || "Failed to load cart");
-        return;
-      }
-
-      setCart(data.cart || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Network error");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!user || !delivery) return null;
 
@@ -94,45 +74,10 @@ function CheckoutPage() {
   const total = subtotal + DELIVERY_FEE;
 
   // 💳 PAY / PLACE ORDER
-  // const pay = async () => {
-  //   try {
-  //     setPlacing(true);
-
-  //     const token = sessionStorage.getItem("token");
-
-  //     const res = await fetch(
-  //       `${BASE}/cart/initialize-payment`,
-  //       {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           Authorization: `Bearer ${token}`,
-  //         },
-  //         body: JSON.stringify({
-  //           email: user.email,
-  //           amount: total,
-  //         }),
-  //       }
-  //     );
-
-  //     const data = await res.json();
-
-  //     if (!res.ok) {
-  //       setPlacing(false);
-  //       return toast.error(data.message);
-  //     }
-
-  //     window.location.href = data.authorization_url;
-  //   } catch (error) {
-  //     setPlacing(false);
-  //     toast.error("Unable to start payment");
-  //   }
-  // };
   const pay = async () => {
     try {
       setPlacing(true);
 
-      const token = sessionStorage.getItem("token");
       const formattedItems = cart.map((i) => ({
         foodId: i._id,
         name: i.name,
@@ -142,55 +87,30 @@ function CheckoutPage() {
       }));
 
       // 1. CREATE ORDER FIRST
-      const orderRes = await fetch(`${BASE}/orders/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          items: formattedItems,   // ✅ FIXED
-          hostel: delivery.hostel,
-          room: delivery.room,
-          total: total,
-          paymentMethod: "Paystack",
-        }),
+      const orderData = await createOrder.mutateAsync({
+        userId: user.id,
+        items: formattedItems,   // ✅ FIXED
+        hostel: delivery.hostel,
+        room: delivery.room,
+        total: total,
+        paymentMethod: "Paystack",
       });
-
-      const orderData = await orderRes.json();
-
-      if (!orderRes.ok) {
-        setPlacing(false);
-        return toast.error(orderData.message);
-      }
 
       const reference = orderData.reference;
 
       // 2. INITIATE PAYSTACK WITH SAME REFERENCE
-      const res = await fetch(`${BASE}/cart/initialize-payment`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: user.email,
-          amount: total,
-          reference, // 🔥 IMPORTANT
-        }),
+      const data = await initializePayment.mutateAsync({
+        email: user.email,
+        amount: total,
+        reference, // 🔥 IMPORTANT
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPlacing(false);
-        return toast.error(data.message);
-      }
 
       window.location.href = data.authorization_url;
     } catch (error) {
       setPlacing(false);
+      if (error instanceof ApiError) {
+        return toast.error(error.message);
+      }
       toast.error("Unable to start payment");
     }
   };
@@ -206,8 +126,8 @@ function CheckoutPage() {
   // 🛒 LOADING STATE (keeps UI clean)
   if (loading) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-10 text-center">
-        <p className="text-muted-foreground">Loading checkout...</p>
+      <main className="mx-auto w-full max-w-4xl px-4 py-10">
+        <DunnkayceLoader variant="page" label="Setting the table" caption="Getting your checkout ready — almost there." />
       </main>
     );
   }

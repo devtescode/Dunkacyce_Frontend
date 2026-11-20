@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useSignupMutation } from "@/lib/api";
 import { store } from "@/lib/store";
 import { setSessionUser } from "@/lib/session";
 import { toast } from "sonner";
@@ -13,7 +14,8 @@ export const Route = createFileRoute("/signup")({
 function SignupPage() {
     const navigate = useNavigate();
 
-    const [loading, setLoading] = useState(false);
+    const { mutateAsync, isPending } = useSignupMutation();
+    const loading = isPending;
 
     const [form, setForm] = useState({
         email: "",
@@ -32,21 +34,7 @@ function SignupPage() {
         if (!form.password) return toast.error("Password is required");
 
         try {
-            setLoading(true);
-
-            const res = await fetch("https://dunkacyce-backend.onrender.com/dunnkayce/signup", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(form),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                return toast.error(data.message || "Signup failed");
-            }
+            const data = await mutateAsync(form);
 
             const token = data.token ?? data.accessToken ?? "";
             const currentUser = data.user ?? data.admin ?? null;
@@ -66,10 +54,14 @@ function SignupPage() {
             }
 
             navigate({ to: "/" });
-        } catch (err) {
+        } catch (error) {
+            if (error?.payload || error?.status) {
+                return toast.error(
+                    error?.payload?.message || error?.message || "Signup failed",
+                );
+            }
+
             toast.error("Network error. Try again.");
-        } finally {
-            setLoading(false);
         }
     };
 

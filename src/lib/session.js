@@ -45,4 +45,6 @@ export function clearSession() {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem("user");
   sessionStorage.removeItem("token");
+  sessionStorage.removeItem("adminToken");
+  sessionStorage.removeItem("admin");
 }

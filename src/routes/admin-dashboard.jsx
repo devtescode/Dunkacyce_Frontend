@@ -2,26 +2,34 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/AdminShell";
 import { ArrowRight } from "lucide-react";
+import {
+  useAdminDashboardStatsQuery,
+  useRushHourQuery,
+  useToggleRushHourMutation,
+} from "@/lib/api";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
 export const Route = createFileRoute("/admin-dashboard")({
   head: () => ({ meta: [{ title: "Admin Dashboard — Dunnkayce" }] }),
   component: AdminDashboardPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-// const BASE = "http://localhost:5000";
-
 
 function AdminDashboardPage() {
   const navigate = useNavigate();
-  const [rushHour, setRushHour] = useState(false);
 
   const [admin, setAdmin] = useState(null);
-  const [stats, setStats] = useState({
+
+  const dashboardStatsQuery = useAdminDashboardStatsQuery();
+  const rushHourQuery = useRushHourQuery();
+  const toggleRushHourMutation = useToggleRushHourMutation();
+
+  const stats = dashboardStatsQuery.data ?? {
     totalStudents: 0,
     totalOrders: 0,
     weeklyRevenue: 0,
-  });
+  };
+  const rushHour = rushHourQuery.data ?? false;
 
   // -------------------------
   // AUTH CHECK
@@ -43,67 +51,10 @@ function AdminDashboardPage() {
     }
   }, [navigate]);
 
-  // -------------------------
-  // FETCH DASHBOARD STATS
-  // -------------------------
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`${BASE}/admin/dashboard-stats`);
-        const data = await res.json();
-
-        setStats({
-          totalStudents: data.totalStudents || 0,
-          totalOrders: data.totalOrders || 0,
-          weeklyRevenue: data.weeklyRevenue || 0,
-        });
-      } catch (err) {
-        console.error("Failed to fetch stats:", err);
-      }
-    };
-
-    fetchStats();
-  }, []);
-
-  useEffect(() => {
-    const fetchRushHour = async () => {
-      try {
-        const res = await fetch(
-          `${BASE}/settings/rush-hour`,
-        );
-
-        const data = await res.json();
-
-        if (res.ok) {
-          setRushHour(data.rushHour);
-        }
-      } catch (err) {
-        console.log(err);
-      }
-    };
-
-    fetchRushHour();
-  }, []);
-
   // Toggle rush hour
   const toggleRushHour = async () => {
     try {
-      const token = sessionStorage.getItem("adminToken");
-
-      const res = await fetch(`${BASE}/settings/rush-hour`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: true }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setRushHour(data.rushHour);
-      }
+      await toggleRushHourMutation.mutateAsync({ status: true });
     } catch (err) {
       console.log(err);
     }
@@ -112,9 +63,11 @@ function AdminDashboardPage() {
   if (!admin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-sm text-muted-foreground">
-          Checking admin session…
-        </div>
+        <DunnkayceLoader
+          variant="compact"
+          label="Checking admin session"
+          caption="Confirming your kitchen credentials."
+        />
       </div>
     );
   }

@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getSessionUser } from "@/lib/session";
+import { useUserOrdersQuery } from "@/lib/api";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import {
   ShoppingBag,
   UtensilsCrossed,
@@ -14,15 +16,14 @@ export const Route = createFileRoute("/orders")({
   component: OrdersPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-// const BASE = "http://localhost:5000";
-
 function OrdersPage() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(() => getSessionUser());
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useUserOrdersQuery(user?.id);
+
+  const orders = data ?? [];
+  const loading = isPending;
 
   useEffect(() => {
     if (!user) {
@@ -36,20 +37,16 @@ function OrdersPage() {
 
       return;
     }
-
-    fetch(`${BASE}/orders/user/${user.id}`)
-      .then((res) => res.json())
-      .then((data) => setOrders(data.orders ?? []))
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
-  }, [user, navigate]);
+    // The session is read once; re-running on `user` changes would be redundant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
   if (!user) return null;
 
   if (loading) {
     return (
-      <main className="text-center py-20 text-gray-500">
-        Loading your orders...
+      <main className="mx-auto w-full max-w-6xl px-4 py-10">
+        <DunnkayceLoader variant="page" label="Preparing your order history" caption="Dishing up every successful order, fresh from the kitchen." />
       </main>
     );
   }

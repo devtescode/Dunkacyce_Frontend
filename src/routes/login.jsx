@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { store } from "@/lib/store";
 import { setSessionUser } from "@/lib/session";
+import { ApiError, useLoginMutation } from "@/lib/api";
 import { toast } from "sonner";
 import logo from "../assest/elizade_university_ilara_mokin_profile.jpg"
 
@@ -12,7 +13,8 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const loginMutation = useLoginMutation();
+  const loading = loginMutation.isPending;
 
   const [form, setForm] = useState({
     email: "",
@@ -27,21 +29,7 @@ function LoginPage() {
     }
 
     try {
-      setLoading(true);
-
-      const res = await fetch("https://dunkacyce-backend.onrender.com/dunnkayce/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        return toast.error(data.message || "Login failed");
-      }
+      const data = await loginMutation.mutateAsync(form);
 
       const token = data.token ?? data.accessToken ?? "";
       const currentUser = data.user ?? data.admin ?? null;
@@ -64,9 +52,12 @@ function LoginPage() {
 
       navigate({ to: "/user-dashboard", replace: true });
     } catch (err) {
+      if (err instanceof ApiError) {
+        return toast.error(
+          err.payload?.message || err.message || "Login failed"
+        );
+      }
       toast.error("Network error. Try again.");
-    } finally {
-      setLoading(false);
     }
   };
 

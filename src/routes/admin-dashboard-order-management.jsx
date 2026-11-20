@@ -1,61 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/AdminShell";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import { RefreshCcw, CheckCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
+import {
+  useAdminOrdersQuery,
+  useUpdateOrderStatusMutation,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/admin-dashboard-order-management")({
   head: () => ({ meta: [{ title: "Order Management — Dunnkayce Admin" }] }),
   component: OrderManagementPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-
 function OrderManagementPage() {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const token = sessionStorage.getItem("adminToken");
+  const { data, error, isPending, refetch } = useAdminOrdersQuery();
+  const { mutateAsync: updateOrderStatus } = useUpdateOrderStatusMutation();
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${BASE}/admin/getorders`);
-      const data = await res.json();
+  const allOrders = data ?? [];
 
-      // 🔥 ONLY PAID ORDERS
-      const paidOrders = (data.orders ?? []).filter(
-        (o) => o.paymentStatus === "Paid"
-      );
+  // 🔥 ONLY PAID ORDERS
+  const orders = allOrders.filter((o) => o.paymentStatus === "Paid");
+  const loading = isPending;
 
-      setOrders(paidOrders);
-    } catch {
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Keep the load-error toast (React Query v5 has no query-level onError).
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    if (error) toast.error("Failed to load orders");
+  }, [error]);
 
   const updateStatus = async (id, status) => {
     try {
-      const res = await fetch(`${BASE}/orders/${id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!res.ok) throw new Error();
-
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, status } : o))
-      );
-
+      await updateOrderStatus({ id, status });
       toast.success("Status updated");
     } catch {
       toast.error("Failed to update status");
@@ -81,7 +57,7 @@ function OrderManagementPage() {
       </div>
 
       <button
-        onClick={fetchOrders}
+        onClick={() => refetch()}
         className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-white hover:bg-gray-800 transition shadow-sm"
       >
         <RefreshCcw className="h-4 w-4" />
@@ -92,7 +68,7 @@ function OrderManagementPage() {
     {/* LOADING */}
     {loading && (
       <div className="text-center text-gray-500 py-16">
-        Loading successful payments...
+        <DunnkayceLoader variant="compact" label="Loading successful payments" caption="Serving up the latest orders." className="w-full justify-center" />
       </div>
     )}
 

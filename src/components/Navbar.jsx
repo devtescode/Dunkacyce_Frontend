@@ -1,8 +1,10 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Home, ShoppingCart, Package, CreditCard, User, KeyRound, MessageCircle, LogOut, Shield, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { store, useStore } from "@/lib/store";
 import { clearSession } from "@/lib/session";
+import { useCurrentUserCartQuery } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -20,8 +22,13 @@ export function Navbar() {
     const id = s.currentUserId;
     return id ? s.users.find((u) => u.id === id) ?? null : null;
   });
-  const cartCount = useStore((s) => (Array.isArray(s.cart) ? s.cart : []).reduce((n, c) => n + (c.qty ?? 0), 0));
+  const { data: cartItems } = useCurrentUserCartQuery();
+  const cartCount = (cartItems ?? []).reduce(
+    (n, item) => n + (item.quantity ?? 0),
+    0,
+  );
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
   // Lock body scroll & blur main content when side nav is open
@@ -38,6 +45,7 @@ export function Navbar() {
   const handleLogout = () => {
     store.logout();
     clearSession();
+    queryClient.clear();
     setOpen(false);
     navigate({ to: "/login" });
   };

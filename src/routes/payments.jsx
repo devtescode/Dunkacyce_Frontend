@@ -1,21 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getSessionUser } from "@/lib/session";
+import { usePaymentHistoryQuery } from "@/lib/api";
 import { formatNGN } from "@/lib/store";
+import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 
 export const Route = createFileRoute("/payments")({
     head: () => ({ meta: [{ title: "Payment History — Dunnkayce" }] }),
     component: PaymentsPage,
 });
 
-const BASE = "https://dunkacyce-backend.onrender.com";
-
 function PaymentsPage() {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(() => getSessionUser());
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
     // ----------------------------
@@ -35,34 +33,20 @@ function PaymentsPage() {
     // ----------------------------
     // FETCH RECEIPTS
     // ----------------------------
-    useEffect(() => {
-        if (!user?.id) return;
+    const { data, isPending } = usePaymentHistoryQuery(user?.id);
 
-        const fetchPayments = async () => {
-            try {
-                setLoading(true);
-
-                const res = await fetch(
-                    `${BASE}/orders/user/${user.id}/receipts`
-                );
-
-                const data = await res.json();
-
-                console.log("PAYMENT HISTORY:", data);
-
-                setOrders(data.orders || []);
-            } catch (err) {
-                console.error("FETCH ERROR:", err);
-                setOrders([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchPayments();
-    }, [user?.id]);
+    const orders = data ?? [];
+    const loading = isPending;
 
     if (!user) return null;
+
+    if (loading) {
+        return (
+            <main className="mx-auto w-full max-w-6xl px-4 py-10">
+                <DunnkayceLoader variant="page" label="Fetching your payments" caption="Tallying up every successful transaction." />
+            </main>
+        );
+    }
 
     // ----------------------------
     // STATUS COLORS
@@ -81,13 +65,6 @@ function PaymentsPage() {
             <h1 className="text-3xl font-bold mb-6">
                 Payment History
             </h1>
-
-            {/* LOADING */}
-            {loading && (
-                <div className="text-center py-10 text-gray-500">
-                    Loading payments...
-                </div>
-            )}
 
             {/* EMPTY STATE */}
             {!loading && orders.length === 0 && (

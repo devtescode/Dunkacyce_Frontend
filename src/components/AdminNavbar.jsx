@@ -1,7 +1,10 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Menu, X, LayoutDashboard, Box, Camera, Truck, CreditCard, Users, MapPin, ShieldCheck, KeyRound, MessageCircle, LogOut } from "lucide-react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { clearSession } from "@/lib/session";
+import { store } from "@/lib/store";
 
 const adminNavItems = [
   { to: "/admin-dashboard", label: "Overview", icon: LayoutDashboard },
@@ -20,6 +23,7 @@ const adminNavItems = [
 export function AdminNavbar({ children }) {
   const pathname = useRouterState({ select: (router) => router.location?.pathname ?? "" });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [desktopLoaded, setDesktopLoaded] = useState(false);
@@ -82,6 +86,9 @@ export function AdminNavbar({ children }) {
   const handleLogout = () => {
     sessionStorage.removeItem("adminToken");
     sessionStorage.removeItem("admin");
+    store.logout();
+    clearSession();
+    queryClient.clear();
     navigate({ to: "/adminlogin", replace: true });
   };
 

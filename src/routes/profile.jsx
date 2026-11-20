@@ -29,9 +29,19 @@ function ProfilePage() {
         return null;
     const save = (e) => {
         e.preventDefault();
+        const currentUser = getSessionUser() ?? user ?? {};
+        const id = currentUser.id ?? currentUser._id;
+        const updatedUser = {
+            ...currentUser,
+            ...(id ? { id, _id: currentUser._id } : {}),
+            fullName: form.fullName,
+            email: form.email,
+            phone: form.phone,
+            gender: form.gender,
+        };
         store.updateProfile(form);
-        setSessionUser(form);
-        setUser(form);
+        setSessionUser(updatedUser);
+        setUser(updatedUser);
         toast.success("Profile updated");
     };
     return (<main className="mx-auto max-w-2xl px-4 py-8">

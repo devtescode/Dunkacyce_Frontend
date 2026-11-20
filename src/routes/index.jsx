@@ -3,7 +3,6 @@ import {
   ChevronRight, Utensils, Zap, Users, CheckCircle, Menu, X
 } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/")({
@@ -63,19 +62,6 @@ function Landing() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("app_settings")
-        .select("*")
-        .eq("id", 1)
-        .single();
-      return data;
-    },
-  });
-
-  const dailyLimit = settings?.global_daily_limit ?? 50;
   const navigate = useNavigate();
 
   const goSignup = () => navigate({ to: "/signup", replace: true });

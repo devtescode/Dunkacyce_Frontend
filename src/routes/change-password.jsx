@@ -1,10 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getSessionUser } from "@/lib/session";
+import { useChangePasswordMutation, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 
-
-const BASE = "https://dunkacyce-backend.onrender.com";
 export const Route = createFileRoute("/change-password")({
   head: () => ({
     meta: [{ title: "Change Password — Dunnkayce" }],
@@ -17,7 +16,8 @@ function ChangePasswordPage() {
 
   const [user, setUser] = useState(() => getSessionUser());
 
-  const [loading, setLoading] = useState(false);
+  const changePassword = useChangePasswordMutation();
+  const loading = changePassword.isPending;
 
   const [f, setF] = useState({
     old: "",
@@ -58,34 +58,10 @@ function ChangePasswordPage() {
     }
 
     try {
-      setLoading(true);
-
-      const token = sessionStorage.getItem("token");
-
-      const response = await fetch(
-        // `http://localhost:5000/dunnkayce/change-password`,
-        `${BASE}/dunnkayce/change-password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            oldPassword: f.old,
-            newPassword: f.next,
-          }),
-        }
-      );
-      console.log("Response status:", response.status);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to update password"
-        );
-      }
+      const data = await changePassword.mutateAsync({
+        oldPassword: f.old,
+        newPassword: f.next,
+      });
 
       toast.success(
         data.message || "Password updated successfully"
@@ -96,12 +72,12 @@ function ChangePasswordPage() {
         next: "",
         confirm: "",
       });
-    } catch (error) {
-      toast.error(
-        error?.message || "Failed to update password"
-      );
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      const message =
+        (err instanceof ApiError && err.payload?.message) ||
+        err?.message ||
+        "Failed to update password";
+      toast.error(message);
     }
   };
 
