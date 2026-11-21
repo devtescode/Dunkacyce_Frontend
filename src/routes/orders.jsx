@@ -21,11 +21,16 @@ import { getUserSocket, ORDER_STATUS_EVENTS } from "@/lib/socket";
 import {
   DEFAULT_ETA_MINUTES,
   FULFILLMENT_STATUSES,
+  formatDuration,
   formatOrderDateTime,
   getDeliveredAt,
+  getDeliveryEvidence,
+  getDisplayStatus,
   getEtaDeadline,
+  getLateElapsedMs,
   getReadyAt,
   normalizeStatus,
+  ON_THE_WAY_WINDOW_MS,
   useCountdown,
 } from "@/lib/orderTracking";
 import { formatNGN } from "@/lib/store";
@@ -39,7 +44,7 @@ export const Route = createFileRoute("/orders")({
 
 const FILTERS = [
   { id: "all", label: "All" },
-  { id: "in-progress", label: "In progress" },
+  { id: "in-progress", label: "Preparing" },
   { id: "ready", label: "Ready" },
   { id: "delivered", label: "Delivered" },
 ];
@@ -113,7 +118,7 @@ function isPaid(paymentStatus) {
 
 /** Shared screen-reader sentence for live ETA updates, including the final minute. */
 function etaRemainingSentence(countdown) {
-  if (countdown.isExpired) return "Arrival estimate elapsed. We are checking with the kitchen.";
+  if (countdown.isExpired) return `Late by ${countdown.lateLabel}.`;
   if (countdown.minutes < 1) return "Under a minute remaining.";
   return `About ${countdown.minutes} ${countdown.minutes === 1 ? "minute" : "minutes"} remaining.`;
 }
@@ -147,7 +152,7 @@ function OrdersPage() {
   const activeOrders = useMemo(
     () =>
       orders.filter((order) => {
-        const key = statusKey(normalizeStatus(order));
+        const key = statusKey(getDisplayStatus(order));
         return key !== "delivered" && key !== "cancelled";
       }),
     [orders],
@@ -164,8 +169,8 @@ function OrdersPage() {
   const spotlightOrder = useMemo(() => {
     if (!activeOrders.length) return null;
     return [...activeOrders].sort((a, b) => {
-      const aKey = statusKey(normalizeStatus(a));
-      const bKey = statusKey(normalizeStatus(b));
+      const aKey = statusKey(getDisplayStatus(a));
+      const bKey = statusKey(getDisplayStatus(b));
       const aReady = aKey === "ready" || aKey === "on-the-way" ? 1 : 0;
       const bReady = bKey === "ready" || bKey === "on-the-way" ? 1 : 0;
       if (aReady !== bReady) return bReady - aReady;
@@ -173,8 +178,10 @@ function OrdersPage() {
     })[0];
   }, [activeOrders]);
 
-  const spotlightStatus = spotlightOrder ? normalizeStatus(spotlightOrder) : null;
   const spotlightCountdown = useCountdown(spotlightOrder ? getEtaDeadline(spotlightOrder) : null);
+  const spotlightStatus = spotlightOrder
+    ? getDisplayStatus(spotlightOrder, spotlightCountdown.now)
+    : null;
 
   // Poll only while something is still moving; socket events invalidate at once.
   useEffect(() => {
@@ -237,7 +244,28 @@ function OrdersPage() {
       if (key === "ready") {
         toast.success(`Your order is ready! Estimated arrival in about ${etaMinutes} minutes.`);
       } else if (key === "delivered") {
-        toast.success("Your order has been delivered. Enjoy!");
+        // Socket payloads carry the persisted timing snapshot. Reconstruct a
+        // minimal order so the same evidence rules used in the UI apply here.
+        const source = payload?.order ?? payload ?? {};
+        const pseudoOrder = {
+          status: "Delivered",
+          readyAt: source.readyAt ?? payload?.readyAt,
+          deliveredAt: source.deliveredAt ?? payload?.deliveredAt,
+          etaMinutes: source.etaMinutes ?? payload?.etaMinutes,
+          etaDeadlineAt: source.etaDeadlineAt ?? payload?.etaDeadlineAt,
+          deliveredBeforeDeadline:
+            source.deliveredBeforeDeadline ?? payload?.deliveredBeforeDeadline,
+          lateByMs: source.lateByMs ?? payload?.lateByMs,
+          readyAtUsed: source.readyAtUsed ?? payload?.readyAtUsed,
+          etaMinutesUsed: source.etaMinutesUsed ?? payload?.etaMinutesUsed,
+          updatedAt: source.updatedAt ?? payload?.updatedAt,
+        };
+        const evidence = getDeliveryEvidence(pseudoOrder);
+        toast.success("Your order has been delivered. Enjoy!", {
+          description: evidence.hasTiming
+            ? `Delivery timing: ${evidence.summary}.`
+            : "Delivery time is being confirmed.",
+        });
       } else if (key === "preparing") {
         toast("Your order is being prepared.");
       } else {
@@ -268,7 +296,7 @@ function OrdersPage() {
   const matchingOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     return sortedOrders.filter((order) => {
-      const key = statusKey(normalizeStatus(order));
+      const key = statusKey(getDisplayStatus(order));
       if (filter === "in-progress" && key === "delivered") return false;
       if (filter === "ready" && key !== "ready" && key !== "on-the-way") {
         return false;
@@ -484,7 +512,7 @@ function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total 
             aria-pressed={filter === option.id}
             onClick={() => onFilterChange(option.id)}
             className={cn(
-              "inline-flex min-h-11 items-center justify-center rounded-full px-3 py-1.5 text-[11px] font-semibold transition motion-reduce:transition-none",
+              "inline-flex min-h-11 items-center justify-center rounded-full px-2 py-1.5 text-[11px] font-semibold transition motion-reduce:transition-none",
               filter === option.id
                 ? "bg-primary text-primary-foreground"
                 : "border border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -505,9 +533,11 @@ function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total 
 function Spotlight({ order, status, countdown, etaMinutes }) {
   const key = statusKey(status);
   const isReady = key === "ready" || key === "on-the-way";
-  // Only a real backend dispatch status advances the tracker; an elapsed ETA is not dispatch.
+  // A Ready order enters "On the way" automatically in its final ETA minute.
   const isOnTheWay = key === "on-the-way";
   const hasDeadline = getEtaDeadline(order) != null;
+  // Live lateness is derived from the same deadline the countdown renders.
+  const isLate = getLateElapsedMs(order, countdown.now) > 0;
   const progress = hasDeadline
     ? Math.min(
         100,
@@ -517,10 +547,10 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
   const hostel = order.hostel || "your hostel";
   const room = order.room || "—";
   const statusText = isReady
-    ? isOnTheWay
-      ? "On the way to you"
-      : key === "ready" && countdown.isExpired
-        ? "Ready — arrival estimate elapsed"
+    ? hasDeadline && countdown.isExpired
+      ? `Ready — late by ${countdown.lateLabel}`
+      : isOnTheWay
+        ? "On the way to you"
         : "Ready for handoff"
     : "Preparing";
 
@@ -545,14 +575,19 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
           </p>
           <p
             aria-hidden="true"
-            className="text-xl font-semibold tabular-nums text-foreground sm:text-2xl"
+            className={cn(
+              "text-xl font-semibold tabular-nums sm:text-2xl",
+              isReady && hasDeadline && countdown.isExpired
+                ? "text-destructive"
+                : "text-foreground",
+            )}
           >
             {!isReady
               ? "Preparing"
               : !hasDeadline
                 ? "Estimating"
                 : countdown.isExpired
-                  ? "ETA elapsed"
+                  ? `Late by ${countdown.lateLabel}`
                   : countdown.label}
           </p>
         </div>
@@ -563,7 +598,9 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
           ? "Your order is being prepared."
           : !hasDeadline
             ? "Your order is ready. Arrival time is being confirmed."
-            : `Your order is ready. ${etaRemainingSentence(countdown)}`}
+            : isOnTheWay && !countdown.isExpired
+              ? `Your order is on the way. ${etaRemainingSentence(countdown)}`
+              : `Your order is ready. ${etaRemainingSentence(countdown)}`}
       </p>
 
       <div
@@ -577,23 +614,35 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
             ? "Preparing. Estimated arrival countdown starts when the order is marked ready."
             : !hasDeadline
               ? "Ready. Arrival time is being confirmed."
-              : etaRemainingSentence(countdown)
+              : isOnTheWay && !countdown.isExpired
+                ? `On the way. ${etaRemainingSentence(countdown)}`
+                : etaRemainingSentence(countdown)
         }
         className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary"
       >
         <div
-          className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out motion-reduce:transition-none"
+          className={cn(
+            "h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none",
+            isLate ? "bg-destructive" : "bg-primary",
+          )}
           style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p
+        className={cn(
+          "mt-1.5 text-xs",
+          isLate ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
         {!isReady
           ? `Your ${DEFAULT_ETA_MINUTES}-minute countdown starts when it’s marked ready.`
           : !hasDeadline
             ? "Arrival time is being confirmed — stay close."
             : countdown.isExpired
-              ? "We’re checking with the kitchen and will update you shortly."
-              : `About ${etaMinutes} minutes from when your order was marked ready.`}
+              ? `We are ${countdown.lateLabel} past the arrival estimate — checking with the kitchen.`
+              : isOnTheWay
+                ? "On the way — arriving in under a minute."
+                : `About ${etaMinutes} minutes from when your order was marked ready.`}
       </p>
 
       <div className="mt-3">
@@ -603,8 +652,74 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
   );
 }
 
+/** Shared delivery timestamp + timing verdict used by the banner and each card. */
+function DeliveryEvidence({ order }) {
+  const evidence = getDeliveryEvidence(order);
+  const deliveredAt = evidence.deliveredAt ?? getDeliveredAt(order);
+  const verdictText =
+    evidence.verdict === "late"
+      ? `Late by ${formatDuration(evidence.lateByMs)}`
+      : evidence.verdict === "on_time"
+        ? "On time"
+        : "Delivery time recorded";
+  const earlyText =
+    evidence.verdict === "on_time" && Number(evidence.earlyByMs) > 0
+      ? `arrived ${formatDuration(evidence.earlyByMs)} early`
+      : null;
+  const accessibleLabel = [
+    `Delivery evidence for order #${shortId(order)}`,
+    deliveredAt == null
+      ? "Delivery time not recorded"
+      : `Delivered on ${formatOrderDateTime(deliveredAt)}`,
+    evidence.hasTiming ? `ETA was ${formatOrderDateTime(evidence.deadlineAt)}` : null,
+    verdictText,
+    earlyText,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
+  return (
+    <div role="status" aria-label={accessibleLabel} className="min-w-0 text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="min-w-0 break-words">
+          {deliveredAt == null ? (
+            "Delivery time not recorded"
+          ) : (
+            <>
+              Delivered on{" "}
+              <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+            </>
+          )}
+        </span>
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+            evidence.verdict === "late"
+              ? "bg-destructive/10 text-destructive ring-destructive/25"
+              : evidence.verdict === "on_time"
+                ? "bg-success/10 text-emerald-800 ring-success/25 dark:text-fresh"
+                : "bg-muted text-muted-foreground ring-border",
+          )}
+        >
+          {verdictText}
+        </span>
+        {earlyText ? (
+          <span className="text-[11px] text-emerald-800 dark:text-fresh">{earlyText}</span>
+        ) : null}
+      </div>
+      {evidence.hasTiming ? (
+        <p className="mt-0.5 text-[11px]">
+          ETA was{" "}
+          <time dateTime={dateTimeAttr(evidence.deadlineAt)}>
+            {formatOrderDateTime(evidence.deadlineAt)}
+          </time>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function DeliveredBanner({ order }) {
-  const deliveredAt = getDeliveredAt(order);
   return (
     <section
       aria-label="Delivery confirmation"
@@ -618,16 +733,9 @@ function DeliveredBanner({ order }) {
           {order.hostel || "Hostel"} · Room {order.room || "—"}
         </p>
       </div>
-      <p className="min-w-0 break-words text-xs text-muted-foreground">
-        {deliveredAt == null ? (
-          "Delivery time not recorded"
-        ) : (
-          <>
-            Delivered on{" "}
-            <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
-          </>
-        )}
-      </p>
+      <div className="min-w-0 text-xs">
+        <DeliveryEvidence order={order} />
+      </div>
     </section>
   );
 }
@@ -735,9 +843,9 @@ function StatusTracker({ status, compact = false, onTheWay = false }) {
 }
 
 function OrderCard({ order }) {
-  const status = normalizeStatus(order);
+  const countdown = useCountdown(getEtaDeadline(order));
+  const status = getDisplayStatus(order, countdown.now);
   const key = statusKey(status);
-  const deliveredAt = getDeliveredAt(order);
   const readyAt = getReadyAt(order);
   const etaMinutes = Number(order.etaMinutes) || DEFAULT_ETA_MINUTES;
   const paid = isPaid(order.paymentStatus);
@@ -818,31 +926,31 @@ function OrderCard({ order }) {
       </footer>
 
       {key === "delivered" ? (
-        <p className="mt-2 flex min-w-0 items-center gap-1.5 break-words text-xs font-medium text-success dark:text-fresh">
-          <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-          {deliveredAt == null ? (
-            <span>Delivery time not recorded</span>
-          ) : (
-            <span className="min-w-0 break-words">
-              Delivered on{" "}
-              <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
-            </span>
-          )}
-        </p>
+        <div className="mt-2 flex min-w-0 items-start gap-1.5 text-xs">
+          <CheckCircle2
+            aria-hidden="true"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success dark:text-fresh"
+          />
+          <DeliveryEvidence order={order} />
+        </div>
       ) : key === "ready" || key === "on-the-way" ? (
-        <ReadyEta order={order} etaMinutes={etaMinutes} readyAt={readyAt} />
+        <ReadyEta order={order} etaMinutes={etaMinutes} readyAt={readyAt} countdown={countdown} />
       ) : null}
     </article>
   );
 }
 
 /** Per-order live ETA so every ready order can be monitored, not just the spotlight. */
-function ReadyEta({ order, etaMinutes, readyAt }) {
+function ReadyEta({ order, etaMinutes, readyAt, countdown }) {
   const deadline = getEtaDeadline(order);
-  const countdown = useCountdown(deadline);
 
   return (
-    <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-xs text-muted-foreground">
+    <p
+      className={cn(
+        "mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-xs",
+        countdown.isExpired && deadline != null ? "text-destructive" : "text-muted-foreground",
+      )}
+    >
       <Bike aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" />
       <span className="min-w-0 break-words">
         Ready at <time dateTime={dateTimeAttr(readyAt)}>{formatOrderDateTime(readyAt)}</time>
@@ -850,12 +958,18 @@ function ReadyEta({ order, etaMinutes, readyAt }) {
       <span aria-hidden="true" className="break-words tabular-nums">
         {deadline == null
           ? `· arriving in ~${etaMinutes} min`
-          : countdown.isExpired
-            ? "· arrival estimate elapsed — we’re checking"
-            : `· arriving in ${countdown.label}`}
+          : countdown.totalMs <= ON_THE_WAY_WINDOW_MS && !countdown.isExpired
+            ? `· on the way — arriving in ${countdown.label}`
+            : countdown.isExpired
+              ? `· late by ${countdown.lateLabel}`
+              : `· arriving in ${countdown.label}`}
       </span>
       <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {`Order #${shortId(order)} is ready. ${
+        {`Order #${shortId(order)} is ${
+          countdown.totalMs <= ON_THE_WAY_WINDOW_MS && deadline != null && !countdown.isExpired
+            ? "on the way"
+            : "ready"
+        }. ${
           deadline == null ? "Arrival time is being confirmed." : etaRemainingSentence(countdown)
         }`}
       </span>

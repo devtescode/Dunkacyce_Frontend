@@ -1,39 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  CalendarCheck2,
   CheckCircle2,
   Clock3,
   Loader2,
-  Lock,
-  LockOpen,
-  MapPin,
   PackageCheck,
   ReceiptText,
   Search,
-  SlidersHorizontal,
   Truck,
-  UserCheck,
-  Users,
-  Wallet,
-  X,
 } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import {
   AdminPanel,
   EmptyState,
   ErrorState,
-  FilterSelect,
   LoadingBlock,
   RefreshButton,
-  SearchField,
-  SectionHeading,
-  StatCard,
   StatusPill,
   toneClasses,
 } from "@/components/admin";
+import { DeliveryEvidenceBadge } from "@/components/admin/orders/DeliveryEvidenceBadge";
+import { OrderStatsBar } from "@/components/admin/orders/OrderStatsBar";
+import { OrderTable } from "@/components/admin/orders/OrderTable";
+import { OrderToolbar } from "@/components/admin/orders/OrderToolbar";
+import { StudentProfileCard } from "@/components/admin/orders/StudentProfileCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,34 +38,27 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   queryKeys,
   useAdminOrdersQuery,
+  useAdminUsersQuery,
   useUpdateOrderStatusMutation,
 } from "@/lib/api";
 import {
-  DEFAULT_ETA_MINUTES,
   formatOrderDateTime,
   getDeliveredAt,
-  getEtaDeadline,
+  getDeliveryEvidence,
+  getLateElapsedMs,
   getReadyAt,
   normalizeStatus,
 } from "@/lib/orderTracking";
-import { getAdminSocket } from "@/lib/socket";
+import { getAdminSocket, ORDER_STATUS_EVENTS } from "@/lib/socket";
 import { formatNGN } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -81,20 +66,6 @@ export const Route = createFileRoute("/admin-dashboard-order-management")({
   head: () => ({ meta: [{ title: "Order Management – Dunnkayce Admin" }] }),
   component: OrderManagementPage,
 });
-
-const STATUS_OPTIONS = ["Pending", "Preparing", "Ready", "Delivered"];
-
-const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "All statuses" },
-  ...STATUS_OPTIONS.map((option) => ({ value: option, label: option })),
-];
-
-const SORT_OPTIONS = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "total-high", label: "Total: high to low" },
-  { value: "total-low", label: "Total: low to high" },
-];
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -104,13 +75,6 @@ function formatDateTime(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-function formatDate(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(date);
 }
 
 function toDateTimeAttr(value) {
@@ -156,6 +120,27 @@ function getStudentKey(order) {
       : String(fallback);
   }
   return String(id);
+}
+
+function isLateOrder(order, current) {
+  try {
+    return (
+      getDeliveryEvidence(order, current)?.verdict === "late" ||
+      Number(getLateElapsedMs(order, current)) > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getLateMagnitude(order, current) {
+  try {
+    const lateByMs = Number(getDeliveryEvidence(order, current)?.lateByMs) || 0;
+    const elapsedMs = Number(getLateElapsedMs(order, current)) || 0;
+    return Math.max(lateByMs, elapsedMs);
+  } catch {
+    return 0;
+  }
 }
 
 function getItems(order) {
@@ -238,24 +223,14 @@ function DetailField({ label, value }) {
   );
 }
 
-function OrderDetailsSheet({ order }) {
+function OrderDetailsSheet({ order, open, onOpenChange, profile, now }) {
   const items = getItems(order);
   const deliveredAt = getDeliveredAt(order);
   const readyAt = getReadyAt(order);
-  const etaDeadline = getEtaDeadline(order);
   const status = normalizeStatus(order);
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-xl border-border/70 bg-background/80"
-        >
-          View details
-        </Button>
-      </SheetTrigger>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-xl sm:p-6">
         <SheetHeader className="space-y-3 pr-8 text-left">
           <div className="flex flex-wrap items-center gap-2">
@@ -271,6 +246,14 @@ function OrderDetailsSheet({ order }) {
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
+          <StudentProfileCard
+            student={order.userId}
+            profile={profile}
+            hostel={order.hostel}
+            room={order.room}
+            variant="full"
+          />
+
           <AdminPanel className="p-4">
             <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
               Order summary
@@ -332,17 +315,9 @@ function OrderDetailsSheet({ order }) {
           </AdminPanel>
 
           <AdminPanel className="p-4">
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-                Fulfillment timeline
-              </p>
-              {deliveredAt ? (
-                <StatusPill tone="fresh" dot={false}>
-                  <CalendarCheck2 aria-hidden="true" className="h-3 w-3" />
-                  Delivery recorded
-                </StatusPill>
-              ) : null}
-            </div>
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              Fulfillment timeline
+            </p>
             <div className="grid gap-4 sm:grid-cols-3">
               <DetailField label="Placed" value={formatDateTime(order?.createdAt)} />
               <DetailField
@@ -362,254 +337,13 @@ function OrderDetailsSheet({ order }) {
                 }
               />
             </div>
-            {deliveredAt ? (
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-xs leading-5 text-success">
-                <CalendarCheck2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Delivered <time dateTime={toDateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
-                  . This is the recorded handoff date and time.
-                </span>
-              </div>
-            ) : status === "Ready" && etaDeadline ? (
-              <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                <Truck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                Estimated arrival by {formatOrderDateTime(etaDeadline)} · ~
-                {order?.etaMinutes || DEFAULT_ETA_MINUTES} min to arrival
-              </p>
-            ) : null}
+            <div className="mt-4">
+              <DeliveryEvidenceBadge order={order} now={now} variant="full" />
+            </div>
           </AdminPanel>
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function FulfillmentControl({
-  order,
-  onRequestStatusChange,
-  isUpdating,
-  isUnlocked,
-  onToggleUnlock,
-}) {
-  const currentStatus = normalizeStatus(order);
-  // Radix skips onValueChange when the chosen value equals the controlled `value`.
-  // A canonical status that is not a Select option must map to the empty-string
-  // placeholder, never to a lookalike option (e.g. "Preparing"), otherwise the
-  // change is silently swallowed.
-  const selectValue = STATUS_OPTIONS.includes(currentStatus) ? currentStatus : "";
-  const shortId = getShortOrderId(order);
-  const orderId = getOrderId(order);
-  const UnlockIcon = isUnlocked ? LockOpen : Lock;
-  const lockButtonRef = useRef(null);
-  const wasUnlocked = useRef(isUnlocked);
-
-  // Re-lock after a confirmed change removes the Select; restore focus to the lock button.
-  useEffect(() => {
-    if (wasUnlocked.current && !isUnlocked) lockButtonRef.current?.focus();
-    wasUnlocked.current = isUnlocked;
-  }, [isUnlocked]);
-
-  return (
-    <div className="w-full space-y-2 sm:max-w-[280px]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Fulfillment status
-      </p>
-      <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2">
-        <StatusPill tone={getStatusToneName(currentStatus)}>{currentStatus}</StatusPill>
-        <button
-          ref={lockButtonRef}
-          type="button"
-          onClick={onToggleUnlock}
-          disabled={isUpdating || !orderId}
-          aria-label={`Change fulfillment status for order ${shortId}`}
-          title={isUnlocked ? "Lock status control" : "Unlock status control"}
-          className={cn(
-            "ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-transparent text-muted-foreground transition hover:border-border hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-            isUnlocked && "border-primary/25 bg-primary/10 text-primary",
-          )}
-        >
-          <UnlockIcon aria-hidden="true" className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      {isUnlocked ? (
-        <Select
-          value={selectValue}
-          onValueChange={(value) => onRequestStatusChange(order, value)}
-          disabled={isUpdating || !orderId}
-        >
-          <SelectTrigger
-            className="h-9 rounded-xl bg-background focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`Update status for order ${shortId}`}
-            aria-busy={isUpdating}
-          >
-            <span className="flex items-center gap-2">
-              {isUpdating ? (
-                <>
-                  <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
-                  <span className="sr-only">Updating status…</span>
-                </>
-              ) : null}
-              <SelectValue placeholder="Select status" />
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <p className="text-xs leading-5 text-muted-foreground">
-          Use the lock button (Enter or Space) to change the fulfillment status.
-        </p>
-      )}
-
-      <p className="text-xs text-muted-foreground">Placed {formatDate(order?.createdAt)}</p>
-    </div>
-  );
-}
-
-function OrderCard({
-  order,
-  onRequestStatusChange,
-  isUpdating,
-  isUnlocked,
-  onToggleUnlock,
-}) {
-  const items = getItems(order);
-  const visibleItems = items.slice(0, 3);
-  const remainingCount = Math.max(items.length - visibleItems.length, 0);
-  const status = normalizeStatus(order);
-  const deliveredAt = getDeliveredAt(order);
-  const readyAt = getReadyAt(order);
-
-  return (
-    <AdminPanel
-      as="article"
-      className="group flex h-full flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-    >
-      <div className="space-y-3 border-b border-border/60 bg-gradient-to-b from-muted/40 to-transparent p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-display text-xl tracking-tight text-foreground">
-                {getShortOrderId(order)}
-              </p>
-              <PaymentBadge order={order} />
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
-              <span>{formatDateTime(order?.createdAt)}</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Total paid
-            </p>
-            <p className="mt-1 font-display text-2xl leading-none tabular-nums text-foreground">
-              {formatMoney(order?.total)}
-            </p>
-          </div>
-        </div>
-        <StatusBadge status={status} />
-        {deliveredAt ? (
-          <p className="flex items-center gap-1.5 text-xs font-medium text-success">
-            <CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-            <time dateTime={toDateTimeAttr(deliveredAt)}>
-              Delivered {formatOrderDateTime(deliveredAt)}
-            </time>
-          </p>
-        ) : status === "Ready" ? (
-          <p className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300">
-            <Truck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              Ready {formatOrderDateTime(readyAt)} · ~
-              {order?.etaMinutes || DEFAULT_ETA_MINUTES} min to arrival
-            </span>
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-1 flex-col gap-5 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Customer
-            </p>
-            <p className="font-medium text-foreground">{getCustomerName(order)}</p>
-            <p className="break-all text-sm text-muted-foreground">{getCustomerEmail(order)}</p>
-            <p className="text-sm text-muted-foreground">{getCustomerPhone(order)}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Delivery
-            </p>
-            <p className="flex items-start gap-1.5 font-medium text-foreground">
-              <MapPin aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span>{order?.hostel || "—"}</span>
-            </p>
-            <p className="text-sm text-muted-foreground">Room {order?.room || "—"}</p>
-            <p className="text-sm text-muted-foreground">
-              Paid via <span className="font-medium text-foreground">{order?.paymentMethod || "—"}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Order items
-            </p>
-            <span className="text-xs text-muted-foreground">
-              {items.length} item{items.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {visibleItems.length > 0 ? (
-              visibleItems.map((item, index) => {
-                const qty = Number(item?.qty) || 0;
-                const price = Number(item?.price) || 0;
-                return (
-                  <div
-                    key={`${item?.name || "item"}-${index}`}
-                    className="flex items-start justify-between gap-3 text-sm"
-                  >
-                    <span className="min-w-0 text-muted-foreground">
-                      <span className="font-medium text-foreground">{qty}×</span>{" "}
-                      {item?.name || "Unnamed item"}
-                    </span>
-                    <span className="shrink-0 font-medium text-foreground">
-                      {formatMoney(qty * price)}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground">No items available.</p>
-            )}
-          </div>
-          {remainingCount > 0 ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              +{remainingCount} more item{remainingCount === 1 ? "" : "s"} in details
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-auto flex flex-col gap-4 border-t border-border/60 pt-4 sm:flex-row sm:items-end sm:justify-between">
-          <FulfillmentControl
-            order={order}
-            onRequestStatusChange={onRequestStatusChange}
-            isUpdating={isUpdating}
-            isUnlocked={isUnlocked}
-            onToggleUnlock={onToggleUnlock}
-          />
-          <OrderDetailsSheet order={order} />
-        </div>
-      </div>
-    </AdminPanel>
   );
 }
 
@@ -626,33 +360,69 @@ function LoadingState() {
 
 function OrderManagementPage() {
   const { data, error, isPending, isFetching, refetch } = useAdminOrdersQuery();
+  const { data: adminUsers } = useAdminUsersQuery();
   const { mutateAsync: updateOrderStatus } = useUpdateOrderStatusMutation();
   const queryClient = useQueryClient();
 
+  const [now, setNow] = useState(() => Date.now());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [updatingIds, setUpdatingIds] = useState(() => new Set());
   const [unlockedIds, setUnlockedIds] = useState(() => new Set());
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
+  const [showPii, setShowPii] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const socket = getAdminSocket();
-    if (!socket) return undefined;
+    if (!socket) {
+      setConnected(false);
+      return undefined;
+    }
+
+    setConnected(Boolean(socket.connected));
 
     const invalidateOrders = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.orders() });
     };
-    const events = ["order_status_updated", "order_ready", "order_delivered"];
+    const handleConnect = () => {
+      setConnected(true);
+      invalidateOrders();
+    };
+    const handleDisconnect = () => setConnected(false);
 
-    events.forEach((event) => socket.on(event, invalidateOrders));
+    ORDER_STATUS_EVENTS.forEach((event) => socket.on(event, invalidateOrders));
     // Socket.IO does not replay missed events; resync on every (re)connection.
-    socket.on("connect", invalidateOrders);
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
     return () => {
-      events.forEach((event) => socket.off(event, invalidateOrders));
-      socket.off("connect", invalidateOrders);
+      ORDER_STATUS_EVENTS.forEach((event) => socket.off(event, invalidateOrders));
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
     };
   }, [queryClient]);
+
+  const profilesByStudentId = useMemo(() => {
+    const users = Array.isArray(adminUsers)
+      ? adminUsers
+      : Array.isArray(adminUsers?.users)
+        ? adminUsers.users
+        : [];
+    const map = new Map();
+    users.forEach((user) => {
+      const key = user?._id ?? user?.id ?? user?.email;
+      if (key === undefined || key === null || key === "") return;
+      map.set(String(key), user);
+    });
+    return map;
+  }, [adminUsers]);
 
   const allOrders = Array.isArray(data) ? data : [];
 
@@ -664,6 +434,7 @@ function OrderManagementPage() {
     const preparing = orders.filter((order) => normalizeStatus(order) === "Preparing").length;
     const ready = orders.filter((order) => normalizeStatus(order) === "Ready").length;
     const delivered = orders.filter((order) => normalizeStatus(order) === "Delivered").length;
+    const late = orders.filter((order) => isLateOrder(order, now)).length;
     const paidStudentIds = new Set();
     const studentsToDeliverIds = new Set();
     orders.forEach((order) => {
@@ -682,7 +453,23 @@ function OrderManagementPage() {
       preparing,
       ready,
       delivered,
+      late,
     };
+  }, [orders, now]);
+
+  const statusCounts = useMemo(() => {
+    const counts = {
+      all: orders.length,
+      Pending: 0,
+      Preparing: 0,
+      Ready: 0,
+      Delivered: 0,
+    };
+    orders.forEach((order) => {
+      const status = normalizeStatus(order);
+      if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
+    });
+    return counts;
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
@@ -718,10 +505,20 @@ function OrderManagementPage() {
       switch (sortBy) {
         case "oldest":
           return aTime - bTime;
-        case "total-high":
+        case "total-desc":
           return bTotal - aTotal;
-        case "total-low":
+        case "total-asc":
           return aTotal - bTotal;
+        case "late-first": {
+          const aLate = isLateOrder(a, now);
+          const bLate = isLateOrder(b, now);
+          if (aLate !== bLate) return aLate ? -1 : 1;
+          if (aLate && bLate) {
+            const magnitudeDiff = getLateMagnitude(b, now) - getLateMagnitude(a, now);
+            if (magnitudeDiff !== 0) return magnitudeDiff;
+          }
+          return bTime - aTime;
+        }
         case "newest":
         default:
           return bTime - aTime;
@@ -729,9 +526,7 @@ function OrderManagementPage() {
     });
 
     return filtered;
-  }, [orders, search, statusFilter, sortBy]);
-
-  const hasActiveFilters = search.trim() || statusFilter !== "all" || sortBy !== "newest";
+  }, [orders, search, statusFilter, sortBy, now]);
 
   const clearFilters = () => {
     setSearch("");
@@ -837,155 +632,23 @@ function OrderManagementPage() {
       }
     >
       <div className="space-y-6">
-        <section
-          aria-label="Paid order statistics"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
-        >
-          <StatCard
-            icon={Wallet}
-            label="Paid Orders"
-            value={stats.paidCount}
-            hint="Successful payments only"
-            tone="forest"
-            isLoading={isPending}
-          />
-          <StatCard
-            icon={Users}
-            label="Paid Students"
-            value={stats.paidStudents}
-            hint="Distinct students with paid orders"
-            tone="violet"
-            isLoading={isPending}
-          />
-          <StatCard
-            icon={UserCheck}
-            label="Students To Deliver"
-            value={stats.studentsToDeliver}
-            hint="Paid students awaiting delivery"
-            tone="gold"
-            isLoading={isPending}
-          />
-          <StatCard
-            icon={ReceiptText}
-            label="Revenue"
-            value={formatMoney(stats.revenue)}
-            hint="Total from paid orders"
-            tone="fresh"
-            isLoading={isPending}
-          />
-          <StatCard
-            icon={Clock3}
-            label="Preparing"
-            value={stats.preparing}
-            hint={`${stats.ready} ready for handoff`}
-            tone="gold"
-            isLoading={isPending}
-          />
-          <StatCard
-            icon={PackageCheck}
-            label="Delivered"
-            value={stats.delivered}
-            hint={`${stats.paidCount - stats.delivered} still in progress`}
-            tone="fresh"
-            isLoading={isPending}
-          />
-        </section>
+        <OrderStatsBar stats={stats} isPending={isPending} />
 
-        <AdminPanel as="section" aria-label="Paid order tools" className="p-4 sm:p-5">
-          <SectionHeading
-            eyebrow="Operations board"
-            title="Order directory"
-            description="Search, filter, and sort successful payments."
-            action={
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <SlidersHorizontal aria-hidden="true" className="h-4 w-4 shrink-0" />
-                  {isPending ? (
-                    <span>Loading paid orders…</span>
-                  ) : (
-                    <span>
-                      Showing <span className="font-semibold text-foreground">{filteredOrders.length}</span>{" "}
-                      of <span className="font-semibold text-foreground">{orders.length}</span> paid orders
-                    </span>
-                  )}
-                </span>
-                {hasActiveFilters ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="rounded-full"
-                  >
-                    Clear filters
-                  </Button>
-                ) : null}
-              </div>
-            }
-          />
-
-          <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px]">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="order-search"
-                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-              >
-                Search orders
-              </label>
-              <div className="relative">
-                <SearchField
-                  id="order-search"
-                  label="Search orders"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by order, customer, hostel, or room"
-                  className="pr-10"
-                />
-                {search ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-                    aria-label="Clear search"
-                  >
-                    <X aria-hidden="true" className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="status-filter"
-                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-              >
-                Status
-              </label>
-              <FilterSelect
-                id="status-filter"
-                label="Filter paid orders by status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={STATUS_FILTER_OPTIONS}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="sort-orders"
-                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-              >
-                Sort by
-              </label>
-              <FilterSelect
-                id="sort-orders"
-                label="Sort by"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                options={SORT_OPTIONS}
-              />
-            </div>
-          </div>
-        </AdminPanel>
+        <OrderToolbar
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          statusCounts={statusCounts}
+          total={orders.length}
+          shown={filteredOrders.length}
+          onClear={clearFilters}
+          showPii={showPii}
+          onTogglePii={setShowPii}
+          connected={connected}
+        />
 
         {error ? (
           <ErrorState
@@ -1015,21 +678,16 @@ function OrderManagementPage() {
             }
           />
         ) : (
-          <section aria-label="Paid orders" className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {filteredOrders.map((order, index) => {
-              const id = getOrderId(order);
-              return (
-                <OrderCard
-                  key={id || `order-${index}`}
-                  order={order}
-                  onRequestStatusChange={requestStatusChange}
-                  isUpdating={id ? updatingIds.has(id) : false}
-                  isUnlocked={id ? unlockedIds.has(id) : false}
-                  onToggleUnlock={() => toggleUnlock(id)}
-                />
-              );
-            })}
-          </section>
+          <OrderTable
+            rows={filteredOrders}
+            now={now}
+            showPii={showPii}
+            updatingIds={updatingIds}
+            unlockedIds={unlockedIds}
+            onToggleUnlock={toggleUnlock}
+            onChangeStatus={(order, status) => requestStatusChange(order, status)}
+            onOpenDetails={(order) => setSelectedOrder(order)}
+          />
         )}
       </div>
 
@@ -1102,6 +760,18 @@ function OrderManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedOrder ? (
+        <OrderDetailsSheet
+          order={selectedOrder}
+          open
+          onOpenChange={(open) => {
+            if (!open) setSelectedOrder(null);
+          }}
+          profile={profilesByStudentId.get(String(getStudentKey(selectedOrder) ?? ""))}
+          now={now}
+        />
+      ) : null}
     </AdminShell>
   );
 }

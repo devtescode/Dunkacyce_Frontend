@@ -177,6 +177,24 @@ function formatDate(value) {
   }
 }
 
+function getPageItems(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const visiblePages = [...new Set([1, currentPage - 1, currentPage, currentPage + 1, totalPages])]
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= totalPages)
+    .sort((left, right) => left - right);
+
+  return visiblePages.reduce((items, pageNumber, index) => {
+    if (index > 0 && pageNumber - visiblePages[index - 1] > 1) {
+      items.push(`ellipsis-${pageNumber}`);
+    }
+    items.push(pageNumber);
+    return items;
+  }, []);
+}
+
 function validateForm(form) {
   const errors = {};
   if (!form.username.trim()) errors.username = "Name is required";
@@ -257,6 +275,7 @@ function SuperAdminPage() {
   const resultTotal = toNumber(pagination.total ?? stats.total);
   const pageStart = resultTotal === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
   const pageEnd = Math.min(currentPage * PAGE_LIMIT, resultTotal);
+  const pageItems = getPageItems(currentPage, totalPages);
 
   const isBusy =
     createMutation.isPending ||
@@ -446,7 +465,10 @@ function SuperAdminPage() {
       }
     >
       <div className="min-w-0 space-y-6">
-        <section aria-label="Administrator statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section
+          aria-label="Administrator statistics"
+          className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3"
+        >
           <StatCard
             label="Total Admins"
             value={stats.total}
@@ -463,14 +485,14 @@ function SuperAdminPage() {
             tone="fresh"
             isLoading={adminsQuery.isPending}
           />
-          <StatCard
+          {/* <StatCard
             label="Inactive Admins"
             value={stats.inactive}
             hint="Sign-in temporarily disabled"
             icon={UserX}
             tone="neutral"
             isLoading={adminsQuery.isPending}
-          />
+          /> */}
           <StatCard
             label="Blocked Admins"
             value={stats.blocked}
@@ -481,7 +503,11 @@ function SuperAdminPage() {
           />
         </section>
 
-        <AdminPanel as="section" className="min-w-0 p-5 sm:p-6" aria-label="Administrator directory">
+        <AdminPanel
+          as="section"
+          className="min-w-0 p-3 sm:p-5 lg:p-6"
+          aria-label="Administrator directory"
+        >
           <SectionHeading
             eyebrow="Access control"
             title="Administrator directory"
@@ -505,13 +531,18 @@ function SuperAdminPage() {
                 options={STATUS_OPTIONS}
               />
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
               <RefreshButton
                 onClick={handleRefresh}
                 isFetching={adminsQuery.isFetching}
                 label={adminsQuery.isFetching ? "Refreshing…" : "Refresh"}
+                className="flex-1 justify-center sm:flex-none"
               />
-              <Button onClick={openCreate} className="rounded-xl" disabled={isBusy}>
+              <Button
+                onClick={openCreate}
+                className="flex-1 justify-center rounded-xl sm:flex-none"
+                disabled={isBusy}
+              >
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 Add admin
               </Button>
@@ -586,7 +617,7 @@ function SuperAdminPage() {
             ) : (
               <>
                 {/* Desktop table */}
-                <div className="hidden overflow-x-auto rounded-2xl border border-border/70 md:block">
+                <div className="hidden overflow-x-auto rounded-2xl border border-border/70 lg:block">
                   <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                     <caption className="sr-only">Administrator accounts</caption>
                     <thead className="bg-muted/50 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -659,16 +690,16 @@ function SuperAdminPage() {
                 </div>
 
                 {/* Mobile cards */}
-                <div className="mt-4 grid gap-3 md:hidden">
+                <div className="mt-4 grid gap-3 lg:hidden">
                   {admins.map((account, index) => {
                     const status = accountStatus(account);
                     return (
                       <AdminPanel
                         as="article"
                         key={accountKey(account, index)}
-                        className="p-4 shadow-none"
+                        className="overflow-hidden p-3 shadow-none sm:p-4"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
                           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
                             {accountName(account).slice(0, 2).toUpperCase()}
                           </span>
@@ -688,7 +719,10 @@ function SuperAdminPage() {
                               {accountEmail(account)}
                             </p>
                           </div>
-                          <StatusPill tone={accountIsSuper(account) ? "gold" : "blue"}>
+                          <StatusPill
+                            tone={accountIsSuper(account) ? "gold" : "blue"}
+                            className="max-w-[92px] shrink-0 truncate sm:max-w-none"
+                          >
                             {formatAdminRole(accountRole(account))}
                           </StatusPill>
                         </div>
@@ -721,20 +755,31 @@ function SuperAdminPage() {
 
                 {totalPages > 1 ? (
                   <nav
-                    className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row"
+                    className="mt-6 grid grid-cols-2 items-center gap-3 sm:flex sm:justify-between"
                     aria-label="Pagination"
                   >
                     <button
                       type="button"
                       onClick={() => setPage((current) => Math.max(1, current - 1))}
                       disabled={currentPage === 1 || adminsQuery.isFetching}
-                      className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
                     >
                       Previous
                     </button>
 
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => {
+                    <div className="col-span-2 row-start-1 flex flex-wrap items-center justify-center gap-1 sm:order-none sm:flex-1 sm:gap-2">
+                      {pageItems.map((pageNumber) => {
+                        if (typeof pageNumber !== "number") {
+                          return (
+                            <span
+                              key={pageNumber}
+                              aria-hidden="true"
+                              className="px-1 text-sm text-muted-foreground"
+                            >
+                              …
+                            </span>
+                          );
+                        }
                         const active = pageNumber === currentPage;
                         return (
                           <button
@@ -744,7 +789,7 @@ function SuperAdminPage() {
                             aria-label={`Go to page ${pageNumber}`}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                              "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition",
+                              "inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-semibold transition sm:h-10 sm:min-w-10 sm:px-3",
                               active
                                 ? "bg-primary text-primary-foreground shadow-sm"
                                 : "border border-border bg-card text-foreground hover:bg-secondary",
@@ -760,7 +805,7 @@ function SuperAdminPage() {
                       type="button"
                       onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                       disabled={currentPage === totalPages || adminsQuery.isFetching}
-                      className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Next
                     </button>
@@ -774,7 +819,7 @@ function SuperAdminPage() {
 
       {/* Create admin dialog */}
       <Dialog open={formOpen} onOpenChange={(open) => (open ? null : closeCreate())}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl p-4 sm:max-h-[calc(100vh-2rem)] sm:w-full sm:max-w-md sm:p-6">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl tracking-wide">Add admin account</DialogTitle>
             <DialogDescription>
@@ -881,7 +926,7 @@ function SuperAdminPage() {
         open={Boolean(pendingAction)}
         onOpenChange={(open) => (open ? null : setPendingAction(null))}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl p-4 sm:max-h-[calc(100vh-2rem)] sm:w-full sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {pendingAction?.type === "delete"
@@ -933,7 +978,7 @@ function AdminActions({ account, status, canManage, busy, onAction }) {
 
   return (
     <div className="flex justify-end gap-1.5">
-      {status === "active" ? (
+      {/* {status === "active" ? (
         <Button
           {...shared}
           aria-label={`Deactivate ${name}`}
@@ -953,7 +998,7 @@ function AdminActions({ account, status, canManage, busy, onAction }) {
         >
           <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
         </Button>
-      )}
+      )} */}
 
       {status === "blocked" ? (
         <Button
