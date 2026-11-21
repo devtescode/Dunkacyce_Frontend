@@ -28,6 +28,8 @@ const normalizeFood = (food) => ({
   image: food.imageUrl ?? food.image ?? "",
   category: food.category ?? "Foods",
   isSwallow: Boolean(food?.isSwallow ?? food?.is_swallow ?? false),
+  availableSoups: Array.isArray(food?.availableSoups) ? food.availableSoups : [],
+  swallowQuantity: Number(food?.swallowQuantity ?? 0),
 });
 
 export const Route = createFileRoute("/user-dashboard")({
@@ -290,17 +292,64 @@ function UserDashboard() {
 /* ================= FOOD CARD ================= */
 function FoodCard({ food }) {
   const [quantity, setQuantity] = useState(1);
+  const [selectedSoup, setSelectedSoup] = useState("");
   const [loading, setLoading] = useState(false);
   const { mutateAsync: addToCart } = useAddToCartMutation();
 
+  const isSwallow = Boolean(food.isSwallow);
+  const swallowQty = Number(food.swallowQuantity ?? 0);
+  const hasSwallowStock = !isSwallow || swallowQty > 0;
+  const needsSoup = isSwallow && Array.isArray(food.availableSoups) && food.availableSoups.length > 0;
+  const maxQty = isSwallow && swallowQty > 0 ? swallowQty : undefined;
+
+  useEffect(() => {
+    if (maxQty && quantity > maxQty) {
+      setQuantity(maxQty);
+    }
+  }, [maxQty, quantity]);
+
+  const isUnavailable =
+    !food.status ||
+    ["preparing", "not available", "unavailable", "out of stock"].includes(
+      food.status.toLowerCase()
+    ) ||
+    !hasSwallowStock;
+
+  const statusColor =
+    food.status === "Available"
+      ? "bg-green-100 text-green-700"
+      : food.status === "Not available"
+        ? "bg-red-100 text-red-700"
+        : "bg-yellow-100 text-yellow-700";
+
+  const canAdd =
+    !loading &&
+    !isUnavailable &&
+    (!needsSoup || Boolean(selectedSoup)) &&
+    (!maxQty || quantity <= maxQty);
+
   const add = async () => {
+    if (needsSoup && !selectedSoup) {
+      toast.error("Please select a soup");
+      return;
+    }
+    if (maxQty && quantity > maxQty) {
+      toast.error(`Only ${swallowQty} left`);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      await addToCart({ foodId: food.id, quantity });
+      await addToCart({
+        foodId: food.id,
+        quantity,
+        ...(selectedSoup ? { soup: selectedSoup } : {}),
+      });
 
       toast.success(`${food.name} added to cart`);
       setQuantity(1);
+      setSelectedSoup("");
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : "Network error"
@@ -310,18 +359,6 @@ function FoodCard({ food }) {
     }
   };
 
-  const isUnavailable =
-    !food.status ||
-    ["preparing", "not available", "unavailable", "out of stock"].includes(
-      food.status.toLowerCase()
-    );
-
-  const statusColor =
-    food.status === "Available"
-      ? "bg-green-100 text-green-700"
-      : food.status === "Not available"
-        ? "bg-red-100 text-red-700"
-        : "bg-yellow-100 text-yellow-700";
   return (
     <article className="rounded-xl border bg-white overflow-hidden shadow-sm hover:shadow-md transition">
 
@@ -330,7 +367,7 @@ function FoodCard({ food }) {
         <img src={food.image} className="w-full h-full object-cover" />
 
         {/* STATUS / SWALLOW */}
-        {(food.status || food.isSwallow) && (
+        {(food.status || isSwallow) && (
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             {food.status && (
               <span
@@ -339,7 +376,7 @@ function FoodCard({ food }) {
                 {food.status}
               </span>
             )}
-            {food.isSwallow && (
+            {isSwallow && (
               <span className="rounded-full border border-amber-200 bg-amber-100/95 px-2.5 py-1 text-[11px] font-semibold text-amber-800 shadow-sm">
                 Swallow
               </span>
@@ -366,6 +403,53 @@ function FoodCard({ food }) {
           </p>
         </div>
 
+        {/* SWALLOW QUANTITY */}
+        {isSwallow && (
+          <div className="text-xs sm:text-sm">
+            {swallowQty <= 0 ? (
+              <span className="font-medium text-red-600">Out of stock</span>
+            ) : (
+              <span className={swallowQty < 10 ? "font-medium text-amber-600" : "text-gray-600"}>
+                {swallowQty} swallows left
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* SOUP SELECTION */}
+        {needsSoup && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-700">Select soup</p>
+            <div className="flex flex-wrap gap-2">
+              {food.availableSoups.map((soup) => {
+                const selected = selectedSoup === soup;
+                return (
+                  <button
+                    key={soup}
+                    type="button"
+                    onClick={() => setSelectedSoup(soup)}
+                    disabled={isUnavailable}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+                      selected
+                        ? "border-black bg-black text-white"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                    } ${isUnavailable ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <span
+                      className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${
+                        selected ? "border-white" : "border-gray-400"
+                      }`}
+                    >
+                      {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                    </span>
+                    {soup}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* QUANTITY */}
         <div className="flex items-center justify-between border rounded-lg px-3 py-2">
 
@@ -381,9 +465,9 @@ function FoodCard({ food }) {
           <span className="font-medium">{quantity}</span>
 
           <button
-            onClick={() => setQuantity((p) => p + 1)}
-            disabled={isUnavailable}
-            className={`text-lg font-bold ${isUnavailable ? "opacity-40 cursor-not-allowed" : ""
+            onClick={() => setQuantity((p) => (maxQty ? Math.min(maxQty, p + 1) : p + 1))}
+            disabled={isUnavailable || (maxQty ? quantity >= maxQty : false)}
+            className={`text-lg font-bold ${isUnavailable || (maxQty ? quantity >= maxQty : false) ? "opacity-40 cursor-not-allowed" : ""
               }`}
           >
             +
@@ -394,7 +478,7 @@ function FoodCard({ food }) {
         {/* BUTTON */}
         <button
           onClick={add}
-          disabled={loading || isUnavailable}
+          disabled={!canAdd}
           className="w-full flex items-center justify-center gap-2 mt-2 text-white py-2.5 rounded-md text-sm disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-br from-primary to-black
           "
         >
@@ -403,8 +487,12 @@ function FoodCard({ food }) {
               <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               Adding...
             </>
+          ) : !hasSwallowStock ? (
+            "Out of stock"
           ) : isUnavailable ? (
             "Not Available"
+          ) : needsSoup && !selectedSoup ? (
+            "Select a soup"
           ) : (
             "Add to Cart"
           )}

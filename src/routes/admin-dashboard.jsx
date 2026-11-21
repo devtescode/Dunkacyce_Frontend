@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   Banknote,
   ChefHat,
@@ -260,6 +261,14 @@ function AdminDashboardPage() {
     () => (Array.isArray(foodsQuery.data) ? foodsQuery.data : []),
     [foodsQuery.data],
   );
+
+  const lowStockSwallows = useMemo(() => {
+    const fromStats = dashboardStatsQuery.data?.lowStockSwallows;
+    if (Array.isArray(fromStats)) return fromStats;
+    return foods.filter(
+      (food) => food?.isSwallow && Number(food?.swallowQuantity ?? 0) < 10,
+    );
+  }, [dashboardStatsQuery.data?.lowStockSwallows, foods]);
 
   const revenueSeries = useMemo(() => buildRevenueSeries(paidOrders), [paidOrders]);
   const popularItems = useMemo(() => buildPopularItems(paidOrders, foods), [paidOrders, foods]);
@@ -607,6 +616,67 @@ function AdminDashboardPage() {
               ) : null
             }
           />
+
+          {!statsLoading && lowStockSwallows.length > 0 ? (
+            <AdminPanel
+              as="section"
+              aria-label="Low swallow stock alert"
+              className="border-rose-500/30 bg-rose-500/5 p-5 sm:p-6"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-700 ring-1 ring-inset ring-rose-500/25 dark:text-rose-300">
+                    <AlertTriangle aria-hidden="true" className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-xl tracking-tight text-foreground">
+                        Low Swallow Stock
+                      </h3>
+                      <StatusPill tone="rose">
+                        {lowStockSwallows.length} below 10
+                      </StatusPill>
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      These swallows have fewer than 10 portions available. Restock them to
+                      avoid missed orders.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/admin-dashboard-food-management"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-background px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
+                >
+                  Manage food
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              </div>
+
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Low stock swallows">
+                {lowStockSwallows.map((food, index) => {
+                  const name = String(food?.name ?? "Unnamed swallow").trim() || "Unnamed swallow";
+                  const remaining = Number(food?.swallowQuantity ?? 0);
+                  const qtyLabel = Number.isFinite(remaining) ? remaining : 0;
+                  return (
+                    <li
+                      key={String(food?._id ?? food?.id ?? `${name}-${index}`)}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/20 bg-background/80 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground" title={name}>
+                          {name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Swallow stock</p>
+                      </div>
+                      <StatusPill tone="rose" dot={false}>
+                        {qtyLabel} left
+                      </StatusPill>
+                    </li>
+                  );
+                })}
+              </ul>
+            </AdminPanel>
+          ) : null}
 
           {statsError ? (
             <ErrorState

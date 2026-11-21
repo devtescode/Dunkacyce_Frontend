@@ -200,6 +200,13 @@ export const store = {
             return { error: "Not logged in" };
         if (state.cart.length === 0)
             return { error: "Cart is empty" };
+        for (const c of state.cart) {
+            const food = state.foods.find((f) => f.id === c.foodId);
+            if (!food)
+                return { error: "Food not found" };
+            if (food.status !== "Available")
+                return { error: `${food.name} is ${food.status}` };
+        }
         const items = state.cart.map((c) => {
             const f = state.foods.find((x) => x.id === c.foodId);
             return { foodId: f.id, name: f.name + (c.soupType ? ` (${c.soupType})` : ""), qty: c.qty, price: f.price, soupType: c.soupType };

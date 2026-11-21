@@ -64,6 +64,8 @@ const STATUS_OPTIONS = [
   { value: "Not available", label: "Not available" },
 ];
 
+const SWALLOW_SOUP_OPTIONS = ["Egusi", "Okro soup", "Awedu", "Vegetable soup"];
+
 const getFoodId = (food) => food?._id ?? food?.id;
 
 const statusTone = (status) => {
@@ -460,11 +462,14 @@ function FoodForm({ initial, onClose, onSaved }) {
     imageUrl: initial?.imageUrl ?? "",
     status: initial?.status ?? "Available",
     isSwallow: initial?.isSwallow ?? false,
+    availableSoups: Array.isArray(initial?.availableSoups) ? initial.availableSoups : [],
+    swallowQuantity: initial?.swallowQuantity ?? 0,
   });
   const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(initial?.imageUrl ?? "");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [customSoupInput, setCustomSoupInput] = useState("");
   const dialogRef = useRef(null);
   const nameInputRef = useRef(null);
   const closeRef = useRef(onClose);
@@ -523,11 +528,89 @@ function FoodForm({ initial, onClose, onSaved }) {
     setFieldErrors((p) => (p[key] ? { ...p, [key]: undefined } : p));
   };
 
+  const clearSwallowFields = (prev) => ({
+    ...prev,
+    isSwallow: false,
+    availableSoups: [],
+    swallowQuantity: 0,
+  });
+
   const setCategory = (cat) => {
+    setForm((p) => {
+      if (cat !== "Foods") {
+        return {
+          ...p,
+          category: cat,
+          isSwallow: false,
+          availableSoups: [],
+          swallowQuantity: 0,
+        };
+      }
+      return { ...p, category: cat };
+    });
+    setCustomSoupInput("");
+    setFieldErrors((p) => ({
+      ...p,
+      availableSoups: undefined,
+      swallowQuantity: undefined,
+    }));
+  };
+
+  const toggleSwallow = () => {
+    setForm((p) => {
+      if (p.isSwallow) {
+        return {
+          ...p,
+          isSwallow: false,
+          availableSoups: [],
+          swallowQuantity: 0,
+        };
+      }
+      return { ...p, isSwallow: true };
+    });
+    setCustomSoupInput("");
+    setFieldErrors((p) => ({
+      ...p,
+      availableSoups: undefined,
+      swallowQuantity: undefined,
+    }));
+  };
+
+  const toggleSoup = (soup) => {
+    setForm((p) => {
+      const exists = p.availableSoups.some(
+        (s) => s.toLowerCase() === soup.toLowerCase(),
+      );
+      return {
+        ...p,
+        availableSoups: exists
+          ? p.availableSoups.filter((s) => s.toLowerCase() !== soup.toLowerCase())
+          : [...p.availableSoups, soup],
+      };
+    });
+    setFieldErrors((p) => (p.availableSoups ? { ...p, availableSoups: undefined } : p));
+  };
+
+  const addCustomSoup = () => {
+    const value = customSoupInput.trim();
+    if (!value) return;
+    setForm((p) => {
+      const exists = p.availableSoups.some(
+        (s) => s.toLowerCase() === value.toLowerCase(),
+      );
+      if (exists) return p;
+      return { ...p, availableSoups: [...p.availableSoups, value] };
+    });
+    setCustomSoupInput("");
+    setFieldErrors((p) => (p.availableSoups ? { ...p, availableSoups: undefined } : p));
+  };
+
+  const removeSoup = (soup) => {
     setForm((p) => ({
       ...p,
-      category: cat,
-      isSwallow: cat === "Foods" ? p.isSwallow : false,
+      availableSoups: p.availableSoups.filter(
+        (s) => s.toLowerCase() !== soup.toLowerCase(),
+      ),
     }));
   };
 
