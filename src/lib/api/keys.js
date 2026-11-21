@@ -25,6 +25,7 @@ export const queryKeys = {
     dashboardStats: () => ["admin", "dashboard-stats"],
     orders: () => ["admin", "orders"],
     carts: () => ["admin", "carts"],
+    users: () => ["admin", "users"],
   },
   settings: {
     all: () => ["settings"],

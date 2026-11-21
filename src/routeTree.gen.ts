@@ -19,6 +19,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AdminloginRouteImport } from './routes/adminlogin'
+import { Route as AdminDashboardUsersRouteImport } from './routes/admin-dashboard-users'
 import { Route as AdminDashboardUserAnalyticsRouteImport } from './routes/admin-dashboard-user-analytics'
 import { Route as AdminDashboardSystemSettingsRouteImport } from './routes/admin-dashboard-system-settings'
 import { Route as AdminDashboardStudentCartRouteImport } from './routes/admin-dashboard-student-cart'
@@ -136,6 +137,11 @@ const AdminDashboardChangePasswordRoute =
     path: '/admin-dashboard-change-password',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminDashboardUsersRoute = AdminDashboardUsersRouteImport.update({
+  id: '/admin-dashboard-users',
+  path: '/admin-dashboard-users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin-dashboard',
   path: '/admin-dashboard',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
+  '/admin-dashboard-users': typeof AdminDashboardUsersRoute
   '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
+  '/admin-dashboard-users': typeof AdminDashboardUsersRoute
   '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
+  '/admin-dashboard-users': typeof AdminDashboardUsersRoute
   '/adminlogin': typeof AdminloginRoute
   '/cart': typeof CartRoute
   '/change-password': typeof ChangePasswordRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
+    | '/admin-dashboard-users'
     | '/adminlogin'
     | '/cart'
     | '/change-password'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
+    | '/admin-dashboard-users'
     | '/adminlogin'
     | '/cart'
     | '/change-password'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-student-cart'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
+    | '/admin-dashboard-users'
     | '/adminlogin'
     | '/cart'
     | '/change-password'
@@ -313,6 +325,7 @@ export interface RootRouteChildren {
   AdminDashboardStudentCartRoute: typeof AdminDashboardStudentCartRoute
   AdminDashboardSystemSettingsRoute: typeof AdminDashboardSystemSettingsRoute
   AdminDashboardUserAnalyticsRoute: typeof AdminDashboardUserAnalyticsRoute
+  AdminDashboardUsersRoute: typeof AdminDashboardUsersRoute
   AdminloginRoute: typeof AdminloginRoute
   CartRoute: typeof CartRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/admin-dashboard-user-analytics'
       fullPath: '/admin-dashboard-user-analytics'
       preLoaderRoute: typeof AdminDashboardUserAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-dashboard-users': {
+      id: '/admin-dashboard-users'
+      path: '/admin-dashboard-users'
+      fullPath: '/admin-dashboard-users'
+      preLoaderRoute: typeof AdminDashboardUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin-dashboard-system-settings': {
@@ -497,6 +517,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardStudentCartRoute: AdminDashboardStudentCartRoute,
   AdminDashboardSystemSettingsRoute: AdminDashboardSystemSettingsRoute,
   AdminDashboardUserAnalyticsRoute: AdminDashboardUserAnalyticsRoute,
+  AdminDashboardUsersRoute: AdminDashboardUsersRoute,
   AdminloginRoute: AdminloginRoute,
   CartRoute: CartRoute,
   ChangePasswordRoute: ChangePasswordRoute,

@@ -11,11 +11,23 @@ import {
   Users,
 } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
-import { Badge } from "@/components/ui/badge";
+import {
+  AdminPanel,
+  PreviewBadge,
+  PreviewBanner,
+  SectionHeading as KitSectionHeading,
+  StatCard,
+  StatusPill,
+} from "@/components/admin";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin-dashboard-user-analytics")({
-  head: () => ({ meta: [{ title: "User Analytics — Dunnkayce Admin" }] }),
+  head: () => ({
+    meta: [
+      { title: "User Analytics — Dunnkayce Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: UserAnalyticsPage,
 });
 
@@ -118,84 +130,82 @@ function UserAnalyticsPage() {
       title="User Analytics"
       description="A premium analytics workspace is coming soon. This page previews the experience and clearly labels sample visuals so you can see what live student insights will look like."
       actions={
-        <Badge
-          variant="outline"
-          className="rounded-full border-primary/25 bg-primary/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-primary"
-        >
-          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-          Coming soon
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <PreviewBadge className="border-gold/60 bg-white/10 text-gold dark:text-gold" />
+          <StatusPill
+            tone="gold"
+            className="border-gold/40 bg-white/10 text-gold dark:text-gold"
+          >
+            <Sparkles aria-hidden="true" className="h-3 w-3" />
+            Coming soon
+          </StatusPill>
+        </div>
       }
     >
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[2rem] border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm sm:p-8">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-20 left-12 h-40 w-40 rounded-full bg-primary/5 blur-3xl"
-          />
+        <PreviewBanner
+          title="User analytics preview"
+          description={
+            <>
+              <span className="font-semibold text-foreground">
+                Understand your campus audience at a glance.
+              </span>{" "}
+              We&apos;re building a live analytics dashboard for Dunnkayce admins.
+              When launched, it will turn student activity into clear, actionable
+              insights without relying on guesswork.
+            </>
+          }
+          className="from-warning/20"
+        >
+          <AdminPanel
+            as="div"
+            className="w-full space-y-3 border-dashed border-gold/40 bg-card/85 p-4 sm:w-80"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">
+              Preview status
+            </p>
+            <StatusRow
+              label="Data connection"
+              value="Not connected yet"
+              tone="muted"
+            />
+            <StatusRow
+              label="Visual design"
+              value="Preview ready"
+              tone="primary"
+            />
+            <StatusRow
+              label="Metrics shown below"
+              value="Sample data only"
+              tone="warning"
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              The cards and charts below are illustrative previews. They are not
+              live platform metrics.
+            </p>
+          </AdminPanel>
+        </PreviewBanner>
 
-          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-end">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/80 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
-                <LineChart className="h-3.5 w-3.5" />
-                Analytics experience in progress
-              </div>
-              <div className="space-y-3">
-                <h2 className="font-display text-2xl tracking-tight text-foreground sm:text-3xl">
-                  Understand your campus audience at a glance.
-                </h2>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                  We&apos;re building a live analytics dashboard for Dunnkayce
-                  admins. When launched, it will turn student activity into clear,
-                  actionable insights without relying on guesswork.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {["Live data planned", "No fake metrics", "Admin-ready insights"].map(
-                  (item) => (
-                    <span
-                      key={item}
-                      className="inline-flex items-center rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground"
-                    >
-                      {item}
-                    </span>
-                  ),
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5 backdrop-blur-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Preview status
-              </p>
-              <div className="mt-4 space-y-4">
-                <StatusRow
-                  label="Data connection"
-                  value="Not connected yet"
-                  tone="muted"
-                />
-                <StatusRow
-                  label="Visual design"
-                  value="Preview ready"
-                  tone="primary"
-                />
-                <StatusRow
-                  label="Metrics shown below"
-                  value="Sample data only"
-                  tone="warning"
-                />
-              </div>
-              <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                The cards and charts below are illustrative previews. They are not
-                live platform metrics.
-              </p>
-            </div>
-          </div>
-        </section>
+        <AdminPanel
+          as="div"
+          className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5"
+        >
+          <LineChart aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />
+          <span className="mr-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Analytics experience in progress
+          </span>
+          {["Live data planned", "No live metrics", "Admin-ready insights"].map(
+            (item) => (
+              <StatusPill
+                key={item}
+                tone={item === "No live metrics" ? "gold" : "forest"}
+                dot={false}
+              >
+                {item}
+              </StatusPill>
+            ),
+          )}
+        </AdminPanel>
 
         <section className="space-y-4">
           <SectionHeading
@@ -207,84 +217,72 @@ function UserAnalyticsPage() {
             {plannedCapabilities.map((capability) => {
               const Icon = capability.icon;
               return (
-                <article
+                <AdminPanel
+                  as="article"
                   key={capability.title}
-                  className="group rounded-3xl border border-border/70 bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
+                  className="group p-5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
-                    <Icon className="h-5 w-5" />
-                  </div>
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+                    <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+                  </span>
                   <h3 className="mt-4 text-sm font-semibold text-foreground">
                     {capability.title}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {capability.description}
                   </p>
-                </article>
+                </AdminPanel>
               );
             })}
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-border/70 bg-card/60 p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90">
-                Preview - sample data
-              </p>
-              <h2 className="font-display text-2xl tracking-tight text-foreground">
-                Illustrative analytics preview
-              </h2>
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                The visuals below use sample data to demonstrate layout and future
-                reporting. They do not represent real user activity or live platform
-                performance.
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              className="w-fit rounded-full border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400"
-            >
-              Sample data only
-            </Badge>
-          </div>
+        <AdminPanel
+          as="section"
+          className="border-dashed border-gold/40 p-5 sm:p-6"
+        >
+          <SectionHeading
+            eyebrow="Preview - sample data"
+            title="Illustrative analytics preview"
+            description="The visuals below use sample data to demonstrate layout and future reporting. They do not represent real user activity or live platform performance."
+            action={<StatusPill tone="gold">Sample data only</StatusPill>}
+          />
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {sampleMetrics.map((metric) => {
               const Icon = metric.icon;
               return (
-                <article
+                <StatCard
                   key={metric.label}
-                  className="rounded-3xl border border-dashed border-border/80 bg-background/80 p-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Sample
+                  label={metric.label}
+                  value={metric.value}
+                  icon={Icon}
+                  tone="forest"
+                  className="border-dashed border-gold/30 bg-card/70"
+                  hint={
+                    <span className="block space-y-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone="gold" dot={false} className="px-2 py-0.5 text-[10px]">
+                          Sample
+                        </StatusPill>
+                        <span className="inline-flex items-center gap-1 font-medium text-primary">
+                          <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+                          {metric.change}
+                        </span>
+                      </span>
+                      <span className="block">{metric.note}</span>
                     </span>
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-muted-foreground">
-                    {metric.label}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
-                    {metric.value}
-                  </p>
-                  <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary/80">
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    {metric.change}
-                  </p>
-                  <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                    {metric.note}
-                  </p>
-                </article>
+                  }
+                />
               );
             })}
           </div>
 
           <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-            <article className="rounded-3xl border border-dashed border-border/80 bg-background/80 p-5 sm:p-6">
+            <AdminPanel
+              as="article"
+              className="border-dashed border-border/80 bg-background/60 p-5 sm:p-6"
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
@@ -294,9 +292,9 @@ function UserAnalyticsPage() {
                     Sample visualization of active user movement across a week.
                   </p>
                 </div>
-                <span className="inline-flex w-fit items-center rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <StatusPill tone="gold" dot={false}>
                   Illustrative chart
-                </span>
+                </StatusPill>
               </div>
 
               <div className="mt-6">
@@ -309,8 +307,8 @@ function UserAnalyticsPage() {
                       <div className="relative flex h-full w-full items-end justify-center rounded-2xl bg-muted/40 px-1 pt-3">
                         <div
                           className={cn(
-                            "w-full max-w-12 rounded-t-xl bg-gradient-to-t from-primary/70 to-primary/30 ring-1 ring-primary/10",
-                            index === 4 && "from-primary to-primary/50",
+                            "w-full max-w-12 rounded-t-xl bg-gradient-to-t from-primary/70 to-primary/30 ring-1 ring-inset ring-primary/15",
+                            index === 4 && "from-forest to-gold/70 ring-gold/40",
                           )}
                           style={{ height: `${point.value}%` }}
                           aria-hidden="true"
@@ -327,9 +325,12 @@ function UserAnalyticsPage() {
                   <span>Higher activity</span>
                 </div>
               </div>
-            </article>
+            </AdminPanel>
 
-            <article className="rounded-3xl border border-dashed border-border/80 bg-background/80 p-5 sm:p-6">
+            <AdminPanel
+              as="article"
+              className="border-dashed border-border/80 bg-background/60 p-5 sm:p-6"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
@@ -339,14 +340,16 @@ function UserAnalyticsPage() {
                     Examples of the insights this page will surface.
                   </p>
                 </div>
-                <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <BarChart3 aria-hidden="true" className="h-5 w-5" />
+                </span>
               </div>
 
               <div className="mt-5 space-y-3">
                 {sampleHighlights.map((highlight) => (
                   <div
                     key={highlight.title}
-                    className="rounded-2xl border border-border/60 bg-card/70 p-4"
+                    className="rounded-2xl border border-border/70 bg-card/80 p-4"
                   >
                     <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                       {highlight.title}
@@ -360,45 +363,61 @@ function UserAnalyticsPage() {
                   </div>
                 ))}
               </div>
-            </article>
+            </AdminPanel>
           </div>
-        </section>
+        </AdminPanel>
+
+        <AdminPanel
+          as="footer"
+          className="flex flex-col gap-4 border-dashed border-gold/50 bg-warning/10 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <PreviewBadge
+              label="Preview · sample data only"
+              className="h-fit shrink-0"
+            />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                Sample data only — not live analytics
+              </p>
+              <p className="max-w-3xl text-xs leading-5 text-muted-foreground sm:text-sm">
+                Every figure, trend, and highlight on this page is illustrative.
+                No user activity, orders, or platform metrics have been connected.
+                This preview is hidden from navigation and intentionally excluded
+                from search indexing.
+              </p>
+            </div>
+          </div>
+          <StatusPill tone="gold" className="w-fit shrink-0">
+            No live metrics
+          </StatusPill>
+        </AdminPanel>
       </div>
     </AdminShell>
   );
 }
 
-function SectionHeading({ eyebrow, title, description }) {
+function SectionHeading({ eyebrow, title, description, action }) {
   return (
-    <div className="space-y-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90">
-        {eyebrow}
-      </p>
-      <h2 className="font-display text-2xl tracking-tight text-foreground sm:text-3xl">
-        {title}
-      </h2>
-      <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-        {description}
-      </p>
-    </div>
+    <KitSectionHeading
+      eyebrow={eyebrow}
+      title={title}
+      description={description}
+      action={action}
+    />
   );
 }
 
 function StatusRow({ label, value, tone = "muted" }) {
+  const kitTone =
+    tone === "primary" ? "forest" : tone === "warning" ? "gold" : "neutral";
+
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "rounded-full px-2.5 py-1 text-xs font-medium",
-          tone === "primary" && "bg-primary/10 text-primary",
-          tone === "warning" &&
-            "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-          tone === "muted" && "bg-muted text-muted-foreground",
-        )}
-      >
+      <StatusPill tone={kitTone} className="shrink-0">
         {value}
-      </span>
+      </StatusPill>
     </div>
   );
 }

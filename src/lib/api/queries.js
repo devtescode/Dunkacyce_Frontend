@@ -167,3 +167,16 @@ export function useAdminCartsQuery(options = {}) {
     ...options,
   });
 }
+
+export async function fetchAdminUsers() {
+  const data = await api.get("/admin/users", { auth: "admin" });
+  return data?.users ?? [];
+}
+
+export function useAdminUsersQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.admin.users(),
+    queryFn: fetchAdminUsers,
+    ...options,
+  });
+}

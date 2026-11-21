@@ -54,46 +54,189 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /* Semantic brand aliases */
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-fresh: var(--fresh);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-surface: var(--surface);
   --font-display: "Bebas Neue", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 }
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.985 0.012 80);
-  --foreground: oklch(0.18 0.03 40);
+
+  /* Brand palette — light */
+  --forest: oklch(0.46 0.105 157);
+  --forest-deep: oklch(0.26 0.055 158);
+  --fresh: oklch(0.58 0.14 146);
+  --gold: oklch(0.85 0.13 85);
+  --gold-soft: oklch(0.94 0.06 90);
+  --surface: oklch(1 0 0);
+
+  /* Semantic tokens — light */
+  --background: oklch(0.985 0.008 150);
+  --foreground: oklch(0.24 0.045 158);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.03 40);
+  --card-foreground: oklch(0.24 0.045 158);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.03 40);
-  --primary: oklch(0.66 0.19 38);
-  --primary-foreground: oklch(0.99 0.005 80);
-  --secondary: oklch(0.95 0.02 70);
-  --secondary-foreground: oklch(0.25 0.04 40);
-  --muted: oklch(0.95 0.015 75);
-  --muted-foreground: oklch(0.5 0.03 50);
-  --accent: oklch(0.92 0.08 90);
-  --accent-foreground: oklch(0.25 0.04 40);
-  --destructive: oklch(0.58 0.22 25);
-  --destructive-foreground: oklch(0.99 0.005 80);
-  --success: oklch(0.62 0.15 145);
-  --success-foreground: oklch(0.99 0.005 80);
-  --warning: oklch(0.75 0.16 75);
-  --warning-foreground: oklch(0.2 0.04 40);
-  --border: oklch(0.9 0.015 70);
-  --input: oklch(0.92 0.015 70);
-  --ring: oklch(0.66 0.19 38);
+  --popover-foreground: oklch(0.24 0.045 158);
+  --primary: oklch(0.46 0.105 157);
+  --primary-foreground: oklch(0.99 0.005 150);
+  --secondary: oklch(0.95 0.025 150);
+  --secondary-foreground: oklch(0.28 0.05 158);
+  --muted: oklch(0.955 0.02 150);
+  --muted-foreground: oklch(0.48 0.035 155);
+  --accent: oklch(0.91 0.085 90);
+  --accent-foreground: oklch(0.25 0.05 158);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0.005 150);
+  --success: oklch(0.52 0.13 145);
+  --success-foreground: oklch(0.99 0.005 150);
+  --warning: oklch(0.85 0.13 85);
+  --warning-foreground: oklch(0.25 0.05 158);
+  --border: oklch(0.91 0.02 150);
+  --input: oklch(0.93 0.018 150);
+  --ring: oklch(0.46 0.105 157);
+}
+
+.dark {
+  /* Brand palette — dark */
+  --forest: oklch(0.52 0.105 158);
+  --forest-deep: oklch(0.18 0.035 158);
+  --fresh: oklch(0.78 0.15 145);
+  --gold: oklch(0.85 0.13 85);
+  --gold-soft: oklch(0.93 0.055 90);
+  --surface: oklch(0.23 0.04 158);
+
+  /* Semantic tokens — dark */
+  --background: oklch(0.18 0.035 158);
+  --foreground: oklch(0.96 0.01 150);
+  --card: oklch(0.23 0.04 158);
+  --card-foreground: oklch(0.96 0.01 150);
+  --popover: oklch(0.25 0.042 158);
+  --popover-foreground: oklch(0.96 0.01 150);
+  --primary: oklch(0.78 0.15 145);
+  --primary-foreground: oklch(0.18 0.04 158);
+  --secondary: oklch(0.28 0.04 158);
+  --secondary-foreground: oklch(0.95 0.01 150);
+  --muted: oklch(0.27 0.035 158);
+  --muted-foreground: oklch(0.75 0.025 150);
+  --accent: oklch(0.85 0.13 85);
+  --accent-foreground: oklch(0.19 0.04 158);
+  --destructive: oklch(0.68 0.19 25);
+  --destructive-foreground: oklch(0.19 0.035 158);
+  --success: oklch(0.78 0.15 145);
+  --success-foreground: oklch(0.19 0.04 158);
+  --warning: oklch(0.85 0.13 85);
+  --warning-foreground: oklch(0.19 0.04 158);
+  --border: oklch(0.34 0.035 158);
+  --input: oklch(0.37 0.035 158);
+  --ring: oklch(0.78 0.15 145);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
   }
+
   h1, h2, h3, .display {
     font-family: var(--font-display);
     letter-spacing: 0.01em;
+  }
+
+  ::selection {
+    background-color: var(--color-gold-soft);
+    color: var(--color-forest-deep);
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .admin-panel {
+    border-radius: 26px;
+    border: 1px solid var(--color-border);
+    background-color: color-mix(in oklab, var(--color-card) 95%, transparent);
+    box-shadow:
+      0 20px 45px -28px color-mix(in oklab, var(--color-forest-deep) 45%, transparent),
+      0 2px 10px -6px color-mix(in oklab, var(--color-forest-deep) 22%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .admin-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .admin-focus:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  .preview-stripe {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 12px,
+      color-mix(in oklab, var(--color-gold) 16%, transparent) 12px 14px
+    );
+  }
+
+  .admin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-forest) 45%, transparent) transparent;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--color-forest) 45%, transparent);
+    border-radius: 999px;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--color-forest) 70%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

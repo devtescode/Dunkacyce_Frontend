@@ -145,7 +145,6 @@ export const store = {
                 ...s,
                 users: exists ? s.users.map((u) => u.id === userId ? { ...u, ...normalized } : u) : [...s.users, normalized],
                 currentUserId: userId,
-                cart: [],
             };
         });
     },

@@ -1,18 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/AdminShell";
 import {
+  AdminPanel,
+  EmptyState,
+  ErrorState,
+  FilterSelect,
+  FoodImage,
+  LoadingBlock,
+  RefreshButton,
+  SearchField,
+  SectionHeading,
+  StatCard,
+  StatusPill,
+} from "@/components/admin";
+import {
   CheckCircle2,
   CircleSlash2,
   Filter,
   ImagePlus,
   Pencil,
   Plus,
-  Search,
+  Sparkles,
   Trash2,
   UtensilsCrossed,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useFoodsQuery,
@@ -20,7 +33,7 @@ import {
   useUpdateFoodMutation,
   useDeleteFoodMutation,
 } from "@/lib/api";
-import { DunnkayceLoader } from "@/components/DunnkayceLoader";
+import { FOOD_HIGHLIGHTS } from "@/lib/foodImages";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin-dashboard-food-management")({
@@ -28,8 +41,32 @@ export const Route = createFileRoute("/admin-dashboard-food-management")({
   component: FoodManagementPage,
 });
 
+const CATEGORY_OPTIONS = [
+  { value: "All", label: "All categories" },
+  { value: "Foods", label: "Foods" },
+  { value: "Protein", label: "Protein" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "All", label: "All statuses" },
+  { value: "Available", label: "Available" },
+  { value: "Preparing", label: "Preparing" },
+  { value: "Not available", label: "Not available" },
+];
+
+const getFoodId = (food) => food?._id ?? food?.id;
+
+const statusTone = (status) => {
+  if (status === "Available") return "fresh";
+  if (status === "Preparing") return "gold";
+  return "rose";
+};
+
+const iconActionClass =
+  "inline-flex items-center justify-center rounded-lg border border-border bg-background/90 p-2 text-foreground shadow-sm backdrop-blur transition hover:border-primary/40 hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
+
 function FoodManagementPage() {
-  const { data, isPending, isError, refetch } = useFoodsQuery();
+  const { data, isPending, isFetching, isError, refetch } = useFoodsQuery();
   const foods = data ?? [];
   const loading = isPending;
   const [showForm, setShowForm] = useState(false);
@@ -79,22 +116,6 @@ function FoodManagementPage() {
     });
   }, [foods, search, categoryFilter, statusFilter]);
 
-  const statusTone = (status) => {
-    if (status === "Available") {
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    }
-    if (status === "Preparing") {
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    }
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  };
-
-  const statusDot = (status) => {
-    if (status === "Available") return "bg-emerald-500";
-    if (status === "Preparing") return "bg-amber-500";
-    return "bg-rose-500";
-  };
-
   return (
     <AdminShell
       eyebrow="Menu"
@@ -103,245 +124,238 @@ function FoodManagementPage() {
       actions={
         <button
           onClick={openAdd}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-forest-deep motion-reduce:transition-none"
         >
-          <Plus className="h-4 w-4" />
+          <Plus aria-hidden="true" className="h-4 w-4" />
           Add food item
         </button>
       }
     >
       <div className="space-y-6">
-        {/* Stats */}
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Menu statistics">
           <StatCard
             icon={UtensilsCrossed}
             label="Total items"
             value={stats.total}
             hint="All menu entries"
-            tone="bg-primary/10 text-primary"
+            tone="forest"
+            isLoading={loading}
           />
           <StatCard
             icon={CheckCircle2}
             label="Available"
             value={stats.available}
             hint="Ready to order"
-            tone="bg-emerald-100 text-emerald-700"
+            tone="fresh"
+            isLoading={loading}
           />
           <StatCard
             icon={Filter}
             label="Preparing"
             value={stats.preparing}
             hint="Temporarily in prep"
-            tone="bg-amber-100 text-amber-700"
+            tone="gold"
+            isLoading={loading}
           />
           <StatCard
             icon={CircleSlash2}
             label="Unavailable"
             value={stats.unavailable}
             hint="Hidden from ordering"
-            tone="bg-rose-100 text-rose-700"
+            tone="rose"
+            isLoading={loading}
           />
         </section>
 
-        {/* Controls + list */}
-        <section className="rounded-3xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-sm">
+        <AdminPanel as="section" aria-label="Menu catalog" className="min-w-0 overflow-hidden">
           <div className="border-b border-border/70 p-4 sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Menu catalog</h2>
-                <p className="text-sm text-muted-foreground">
-                  Search, filter, and manage every dish from one place.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="relative block sm:w-72">
-                  <span className="sr-only">Search foods</span>
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by name or category..."
-                    className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                  />
-                </label>
-                <div className="flex gap-2">
-                  <label className="block flex-1 sm:flex-none">
-                    <span className="sr-only">Filter by category</span>
-                    <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 sm:w-36"
-                    >
-                      <option value="All">All categories</option>
-                      <option value="Foods">Foods</option>
-                      <option value="Protein">Protein</option>
-                    </select>
-                  </label>
-                  <label className="block flex-1 sm:flex-none">
-                    <span className="sr-only">Filter by status</span>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 sm:w-40"
-                    >
-                      <option value="All">All statuses</option>
-                      <option value="Available">Available</option>
-                      <option value="Preparing">Preparing</option>
-                      <option value="Not available">Not available</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
+            <SectionHeading
+              eyebrow="Catalogue"
+              title="Menu catalog"
+              description="Search, filter, and manage every dish from one place."
+              action={
+                <RefreshButton
+                  onClick={() => refetch()}
+                  isFetching={isFetching}
+                  label="Refresh menu"
+                />
+              }
+            />
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_10rem_11rem] lg:items-center">
+              <SearchField
+                id="food-search"
+                label="Search foods"
+                placeholder="Search by name or category..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="sm:col-span-2 lg:col-span-1"
+              />
+              <FilterSelect
+                id="food-category-filter"
+                label="Filter by category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                options={CATEGORY_OPTIONS}
+              />
+              <FilterSelect
+                id="food-status-filter"
+                label="Filter by status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={STATUS_OPTIONS}
+              />
             </div>
           </div>
 
           <div className="p-4 sm:p-5">
             {loading && (
-              <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 p-8">
-                <DunnkayceLoader
-                  variant="compact"
-                  label="Loading the menu"
-                  caption="Plating up every dish."
-                  className="w-full max-w-md justify-center"
-                />
-              </div>
+              <LoadingBlock
+                label="Loading the menu"
+                caption="Plating up every dish."
+                rows={6}
+                variant="cards"
+              />
             )}
 
             {!loading && isError && (
-              <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-8 text-center">
-                <p className="text-base font-semibold text-foreground">Could not load menu items</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Something went wrong while fetching the food catalog.
-                </p>
-                <button
-                  onClick={() => refetch()}
-                  className="mt-4 inline-flex items-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
-                >
-                  Try again
-                </button>
-              </div>
+              <ErrorState
+                title="Could not load menu items"
+                description="Something went wrong while fetching the food catalog."
+                onRetry={() => refetch()}
+              />
             )}
 
             {!loading && !isError && foods.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <UtensilsCrossed className="h-7 w-7" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-foreground">No food items yet</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Start building your menu by adding your first dish.
-                </p>
-                <button
-                  onClick={openAdd}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add food item
-                </button>
-              </div>
+              <EmptyState
+                icon={UtensilsCrossed}
+                title="No food items yet"
+                description="Start building your menu by adding your first dish."
+                action={
+                  <button
+                    onClick={openAdd}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
+                  >
+                    <Plus aria-hidden="true" className="h-4 w-4" />
+                    Add food item
+                  </button>
+                }
+              />
             )}
 
             {!loading && !isError && foods.length > 0 && filteredFoods.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                  <Search className="h-7 w-7" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-foreground">No matching items</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Try adjusting your search or filters to find what you need.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setCategoryFilter("All");
-                    setStatusFilter("All");
-                  }}
-                  className="mt-5 inline-flex items-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
-                >
-                  Clear filters
-                </button>
-              </div>
+              <EmptyState
+                icon={Filter}
+                title="No matching items"
+                description="Try adjusting your search or filters to find what you need."
+                action={
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setCategoryFilter("All");
+                      setStatusFilter("All");
+                    }}
+                    className="inline-flex items-center rounded-xl border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
+                  >
+                    Clear filters
+                  </button>
+                }
+              />
             )}
 
             {!loading && !isError && filteredFoods.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                {filteredFoods.map((food) => (
-                  <article
-                    key={food._id}
-                    className="group flex flex-col rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
-                  >
-                    <div className="flex gap-4">
-                      <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted">
-                        <img
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {filteredFoods.map((food) => {
+                  const foodId = getFoodId(food);
+                  return (
+                    <article
+                      key={foodId ?? food.name}
+                      className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl focus-within:border-primary/30 motion-reduce:transform-none motion-reduce:transition-none"
+                    >
+                      <div className="relative">
+                        <FoodImage
                           src={food.imageUrl}
-                          alt={food.name}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                          onError={(e) => {
-                            e.target.src = "https://placehold.co/96x96?text=Food";
-                          }}
+                          alt={food.name ?? "Food item"}
+                          seed={foodId ?? food.name}
+                          ratio="aspect-[4/3]"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
                         />
-                      </div>
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-forest-deep/85 via-forest-deep/10 to-transparent"
+                        />
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-base font-semibold text-foreground">{food.name}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              <span className="rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/80">
-                                {food.category}
-                              </span>
-                              {food.isSwallow ? (
-                                <span className="rounded-md bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                                  Swallow
-                                </span>
-                              ) : null}
-                              <span>Limit {food.dailyLimit}/day</span>
-                            </div>
-                          </div>
-                          <span
+                        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                          <StatusPill tone={statusTone(food.status)}>{food.status ?? "Unknown"}</StatusPill>
+                          {food.isSwallow ? (
+                            <span className="inline-flex items-center rounded-full border border-gold/50 bg-gold/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-900 backdrop-blur dark:text-amber-100">
+                              Swallow
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="absolute right-3 top-3 flex gap-2 opacity-100 transition duration-200 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-within:translate-y-0 sm:group-focus-within:opacity-100 motion-reduce:transform-none">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(food)}
+                            aria-label={`Edit ${food.name}`}
+                            title="Edit"
+                            className={iconActionClass}
+                          >
+                            <Pencil aria-hidden="true" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteFood(foodId, food.name)}
+                            disabled={deleteMutation.isPending}
+                            aria-label={`Delete ${food.name}`}
+                            title="Delete"
                             className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
-                              statusTone(food.status)
+                              iconActionClass,
+                              "hover:border-destructive/50 hover:bg-destructive hover:text-destructive-foreground",
                             )}
                           >
-                            <span className={cn("h-1.5 w-1.5 rounded-full", statusDot(food.status))} />
-                            {food.status}
-                          </span>
+                            <Trash2 aria-hidden="true" className="h-4 w-4" />
+                          </button>
                         </div>
 
-                        <div className="mt-4 flex items-end justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Price</p>
-                            <p className="text-lg font-semibold text-foreground">
-                              ₦{Number(food.price || 0).toLocaleString()}
-                            </p>
-                          </div>
+                        <div className="absolute inset-x-0 bottom-0 p-4">
+                          <h3 className="truncate font-display text-xl uppercase tracking-wide text-white drop-shadow-sm sm:text-2xl">
+                            {food.name}
+                          </h3>
+                          <p className="mt-0.5 text-xs font-medium text-emerald-50/80">
+                            {food.category}
+                          </p>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="mt-4 flex gap-2 border-t border-border/60 pt-4">
-                      <button
-                        onClick={() => openEdit(food)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteFood(food._id, food.name)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/30"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                      <div className="flex items-end justify-between gap-3 border-t border-border/70 bg-card/70 p-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            Price
+                          </p>
+                          <p className="mt-1 font-display text-2xl leading-none text-foreground">
+                            ₦{Number(food.price || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            Daily limit
+                          </p>
+                          <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                            {food.dailyLimit}/day
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
-        </section>
+        </AdminPanel>
+
+        <MenuInspiration />
       </div>
 
       {showForm && (
@@ -355,20 +369,43 @@ function FoodManagementPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint, tone }) {
+/** Decorative photo strip — these highlights are intentionally not catalog entries. */
+function MenuInspiration() {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{value}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    <AdminPanel as="section" aria-labelledby="menu-inspiration-heading" className="overflow-hidden">
+      <div className="flex flex-col gap-1 border-b border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex items-center gap-2">
+          <Sparkles aria-hidden="true" className="h-4 w-4 text-gold" />
+          <h2
+            id="menu-inspiration-heading"
+            className="font-display text-lg uppercase tracking-wide text-foreground sm:text-xl"
+          >
+            Menu inspiration
+          </h2>
         </div>
-        <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", tone)}>
-          <Icon className="h-5 w-5" />
-        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Decorative photography only — not catalog entries.
+        </p>
       </div>
-    </div>
+      <div aria-hidden="true" className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-6">
+        {FOOD_HIGHLIGHTS.map((item) => (
+          <div key={item.name} className="min-w-0">
+            <FoodImage
+              src={item.src}
+              alt=""
+              seed={`inspiration-${item.name}`}
+              ratio="aspect-[4/3]"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="rounded-xl ring-1 ring-border/60"
+            />
+            <p className="mt-1.5 truncate text-[11px] font-medium text-muted-foreground">
+              {item.name}
+            </p>
+          </div>
+        ))}
+      </div>
+    </AdminPanel>
   );
 }
 
@@ -388,6 +425,51 @@ function FoodForm({ initial, onClose, onSaved }) {
   const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(initial?.imageUrl ?? "");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const dialogRef = useRef(null);
+  const nameInputRef = useRef(null);
+  const closeRef = useRef(onClose);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    const focusFrame = requestAnimationFrame(() => nameInputRef.current?.focus());
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = dialogRef.current?.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -397,7 +479,10 @@ function FoodForm({ initial, onClose, onSaved }) {
     };
   }, [preview]);
 
-  const set = (key, val) => setForm((p) => ({ ...p, [key]: val }));
+  const set = (key, val) => {
+    setForm((p) => ({ ...p, [key]: val }));
+    setFieldErrors((p) => (p[key] ? { ...p, [key]: undefined } : p));
+  };
 
   const setCategory = (cat) => {
     setForm((p) => ({
@@ -410,9 +495,15 @@ function FoodForm({ initial, onClose, onSaved }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || (!form.imageUrl && !imageFile)) {
+      setFieldErrors({
+        name: form.name ? undefined : "Food name is required.",
+        price: form.price ? undefined : "Price is required.",
+        image: !form.imageUrl && !imageFile ? "Upload a photo to continue." : undefined,
+      });
       return toast.error("Name, price and image file are required");
     }
 
+    setFieldErrors({});
     try {
       setLoading(true);
       let payload;
@@ -420,6 +511,7 @@ function FoodForm({ initial, onClose, onSaved }) {
       if (imageFile) {
         const formData = new FormData();
         formData.append("image", imageFile);
+        if (isEdit && form.imageUrl) formData.append("imageUrl", form.imageUrl);
         formData.append("name", form.name);
         formData.append("price", Number(form.price));
         formData.append("category", form.category);
@@ -436,11 +528,11 @@ function FoodForm({ initial, onClose, onSaved }) {
       }
 
       const data = isEdit
-        ? await updateMutation.mutateAsync({ id: initial._id, payload })
+        ? await updateMutation.mutateAsync({ id: getFoodId(initial), payload })
         : await createMutation.mutateAsync(payload);
 
       toast.success(isEdit ? "Food updated" : "Food added");
-      onSaved(data.food, isEdit);
+      onSaved(data?.food, isEdit);
     } catch (error) {
       if (error?.payload) {
         toast.error(error?.payload?.message || "Failed");
@@ -453,39 +545,48 @@ function FoodForm({ initial, onClose, onSaved }) {
   };
 
   const dailyLimitHint = form.category === "Foods" ? 10 : 3;
+  const inputClass =
+    "mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/45 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-forest-deep/60 p-3 backdrop-blur-sm sm:p-6"
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="food-form-title"
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="food-form-title"
         onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xl sm:rounded-3xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4 sm:px-6 sm:py-5">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90">
-              {isEdit ? "Update item" : "New item"}
-            </p>
-            <h3 id="food-form-title" className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {isEdit ? "Edit food" : "Add food item"}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Set menu details, pricing, availability, and an appetizing photo.
-            </p>
+        <div className="relative isolate overflow-hidden border-b border-forest/10 bg-forest-deep px-5 py-5 text-white sm:px-6">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 [background-image:radial-gradient(120%_160%_at_100%_0%,rgba(255,255,255,0.16),transparent_55%),linear-gradient(120deg,#062a1c_0%,#0b402b_60%,#0d4a31_100%)]"
+          />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gold">
+                {isEdit ? "Update item" : "New item"}
+              </p>
+              <h3 id="food-form-title" className="mt-2 font-display text-2xl uppercase tracking-wide sm:text-3xl">
+                {isEdit ? "Edit food" : "Add food item"}
+              </h3>
+              <p className="mt-1 text-sm text-emerald-50/75">
+                Set menu details, pricing, availability, and an appetizing photo.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-xl border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold motion-reduce:transition-none"
+              aria-label="Close dialog"
+            >
+              <X aria-hidden="true" className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-transparent p-2 text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Close dialog"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
@@ -494,12 +595,20 @@ function FoodForm({ initial, onClose, onSaved }) {
               <label className="block sm:col-span-2">
                 <span className="text-sm font-medium text-foreground">Food name</span>
                 <input
-                  className="mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                  ref={nameInputRef}
+                  className={inputClass}
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                   placeholder="e.g. Jollof Rice"
                   autoComplete="off"
+                  aria-invalid={Boolean(fieldErrors.name) || undefined}
+                  aria-describedby={fieldErrors.name ? "food-name-error" : undefined}
                 />
+                {fieldErrors.name ? (
+                  <p id="food-name-error" role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                    {fieldErrors.name}
+                  </p>
+                ) : null}
               </label>
 
               <label className="block">
@@ -507,17 +616,24 @@ function FoodForm({ initial, onClose, onSaved }) {
                 <input
                   type="number"
                   min="0"
-                  className="mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                  className={inputClass}
                   value={form.price}
                   onChange={(e) => set("price", e.target.value)}
                   placeholder="e.g. 1500"
+                  aria-invalid={Boolean(fieldErrors.price) || undefined}
+                  aria-describedby={fieldErrors.price ? "food-price-error" : undefined}
                 />
+                {fieldErrors.price ? (
+                  <p id="food-price-error" role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                    {fieldErrors.price}
+                  </p>
+                ) : null}
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-foreground">Status</span>
                 <select
-                  className="mt-1.5 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                  className={inputClass}
                   value={form.status}
                   onChange={(e) => set("status", e.target.value)}
                 >
@@ -539,10 +655,10 @@ function FoodForm({ initial, onClose, onSaved }) {
                       type="button"
                       onClick={() => setCategory(cat)}
                       className={cn(
-                        "rounded-xl border px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "rounded-xl border px-4 py-3 text-sm font-semibold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none",
                         active
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-input bg-background text-foreground hover:bg-secondary"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input bg-background text-foreground hover:bg-secondary",
                       )}
                       aria-pressed={active}
                     >
@@ -557,43 +673,48 @@ function FoodForm({ initial, onClose, onSaved }) {
             </div>
 
             <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-              <label className="block">
+              <div className="flex items-center gap-2">
+                <ImagePlus aria-hidden="true" className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-foreground">Food image / photo</span>
-                <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-dashed border-input bg-background px-4 py-3 transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20">
-                  <ImagePlus className="h-5 w-5 shrink-0 text-muted-foreground" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="block w-full text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary hover:file:bg-primary/15"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      setImageFile(file);
-                      if (file) {
-                        setPreview(URL.createObjectURL(file));
-                        set("imageUrl", file.name);
-                      } else {
-                        setPreview(initial?.imageUrl ?? "");
-                        set("imageUrl", initial?.imageUrl ?? "");
-                      }
-                    }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {isEdit
-                    ? "Upload a new photo to replace the current one, or leave empty to keep it."
-                    : "Upload a clear photo of the dish. This is required for new items."}
-                </p>
+              </div>
+              <label className="mt-3 flex items-center gap-3 rounded-xl border border-dashed border-input bg-background px-4 py-3 transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring motion-reduce:transition-none">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary hover:file:bg-primary/15"
+                  aria-invalid={Boolean(fieldErrors.image) || undefined}
+                  aria-describedby={fieldErrors.image ? "food-image-error" : undefined}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setImageFile(file);
+                    if (file) {
+                      setPreview(URL.createObjectURL(file));
+                    } else {
+                      setPreview(initial?.imageUrl ?? "");
+                    }
+                  }}
+                />
               </label>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {isEdit
+                  ? "Upload a new photo to replace the current one, or leave empty to keep it."
+                  : "Upload a clear photo of the dish. This is required for new items."}
+              </p>
+              {fieldErrors.image ? (
+                <p id="food-image-error" role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                  {fieldErrors.image}
+                </p>
+              ) : null}
 
               {preview && (
-                <div className="mt-4 overflow-hidden rounded-xl border border-border/70 bg-background">
-                  <img
+                <div className="mt-4 overflow-hidden rounded-2xl border border-border/70 bg-background">
+                  <FoodImage
                     src={preview}
-                    alt="Food preview"
-                    className="h-48 w-full object-cover"
-                    onError={(e) => {
-                      e.target.src = "https://placehold.co/400x160?text=Invalid+URL";
-                    }}
+                    alt={form.name ? `${form.name} preview` : "Food preview"}
+                    seed={isEdit ? getFoodId(initial) : "new-food"}
+                    ratio="aspect-[4/3]"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               )}
@@ -615,14 +736,14 @@ function FoodForm({ initial, onClose, onSaved }) {
                     aria-label="This is a swallow"
                     onClick={() => set("isSwallow", !form.isSwallow)}
                     className={cn(
-                      "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      form.isSwallow ? "border-primary bg-primary" : "border-input bg-muted"
+                      "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      form.isSwallow ? "border-primary bg-primary" : "border-input bg-muted",
                     )}
                   >
                     <span
                       className={cn(
                         "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-                        form.isSwallow ? "translate-x-6" : "translate-x-1"
+                        form.isSwallow ? "translate-x-6" : "translate-x-1",
                       )}
                     />
                   </button>
@@ -635,14 +756,15 @@ function FoodForm({ initial, onClose, onSaved }) {
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-busy={loading || undefined}
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
             >
               {loading ? "Saving..." : isEdit ? "Update food" : "Add food"}
             </button>

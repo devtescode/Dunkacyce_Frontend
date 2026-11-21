@@ -4,9 +4,10 @@ import { toast } from "sonner";
 import {
   CheckCircle2,
   Clock3,
+  Lock,
+  MapPin,
   PackageCheck,
   ReceiptText,
-  RefreshCcw,
   Search,
   SlidersHorizontal,
   Truck,
@@ -17,26 +18,19 @@ import {
 } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+  AdminPanel,
+  EmptyState,
+  ErrorState,
+  FilterSelect,
+  LoadingBlock,
+  RefreshButton,
+  SearchField,
+  SectionHeading,
+  StatCard,
+  StatusPill,
+  toneClasses,
+} from "@/components/admin";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -45,8 +39,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAdminOrdersQuery, useUpdateOrderStatusMutation } from "@/lib/api";
+import { useAdminOrdersQuery } from "@/lib/api";
 import { formatNGN } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +49,20 @@ export const Route = createFileRoute("/admin-dashboard-order-management")({
 });
 
 const STATUS_OPTIONS = ["Preparing", "Ready", "Delivered"];
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  ...STATUS_OPTIONS.map((option) => ({ value: option, label: option })),
+];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "total-high", label: "Total: high to low" },
+  { value: "total-low", label: "Total: low to high" },
+];
+
+const STATUS_UPDATE_UNAVAILABLE = "Status updates unavailable — backend endpoint not deployed";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -117,16 +124,16 @@ function getItems(order) {
   return Array.isArray(order?.items) ? order.items : [];
 }
 
-function getStatusTone(status) {
+function getStatusToneName(status) {
   switch (status) {
     case "Delivered":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+      return "fresh";
     case "Ready":
-      return "border-sky-200 bg-sky-50 text-sky-700";
+      return "blue";
     case "Preparing":
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "gold";
     default:
-      return "border-border bg-muted/50 text-muted-foreground";
+      return "neutral";
   }
 }
 
@@ -143,123 +150,29 @@ function getStatusIcon(status) {
   }
 }
 
-function StatCard({ icon: Icon, label, value, hint, tone }) {
+function PaymentBadge({ order }) {
+  const isPaid = order?.paymentStatus === "Paid";
   return (
-    <Card className="border-border/70 bg-card/80 shadow-sm backdrop-blur-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {label}
-            </p>
-            <p className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              {value}
-            </p>
-            {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
-          </div>
-          <div
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border",
-              tone
-            )}
-          >
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <StatusPill tone={isPaid ? "fresh" : "neutral"} dot={false}>
+      {isPaid ? <CheckCircle2 aria-hidden="true" className="h-3 w-3" /> : null}
+      {isPaid ? "Paid" : order?.paymentStatus || "Unpaid"}
+    </StatusPill>
   );
 }
 
-function OrderDetailsSheet({ order }) {
-  const items = getItems(order);
-  const StatusIcon = getStatusIcon(order?.status);
-
+function StatusBadge({ status }) {
+  const tone = getStatusToneName(status);
+  const Icon = getStatusIcon(status);
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="rounded-full">
-          View details
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="space-y-3 pr-8">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
-              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-              Paid
-            </Badge>
-            <Badge variant="outline" className={cn("rounded-full", getStatusTone(order?.status))}>
-              <StatusIcon className="mr-1 h-3.5 w-3.5" />
-              {order?.status || "Unknown"}
-            </Badge>
-          </div>
-          <SheetTitle className="font-display text-2xl tracking-tight">
-            Order {getShortOrderId(order)}
-          </SheetTitle>
-          <SheetDescription>
-            Placed {formatDateTime(order?.createdAt)}. Full order and customer details are shown below.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:grid-cols-2">
-            <DetailField label="Order ID" value={getOrderId(order) || "—"} />
-            <DetailField label="Created" value={formatDateTime(order?.createdAt)} />
-            <DetailField label="Customer" value={getCustomerName(order)} />
-            <DetailField label="Email" value={getCustomerEmail(order)} />
-            <DetailField label="Phone" value={getCustomerPhone(order)} />
-            <DetailField
-              label="Location"
-              value={`${order?.hostel || "—"} · Room ${order?.room || "—"}`}
-            />
-            <DetailField label="Payment method" value={order?.paymentMethod || "—"} />
-            <DetailField label="Total paid" value={formatMoney(order?.total)} />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Items
-              </h3>
-              <span className="text-sm text-muted-foreground">
-                {items.length} item{items.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-border/70">
-              {items.length > 0 ? (
-                <div className="divide-y divide-border/70">
-                  {items.map((item, index) => {
-                    const qty = Number(item?.qty) || 0;
-                    const price = Number(item?.price) || 0;
-                    return (
-                      <div
-                        key={`${item?.name || "item"}-${index}`}
-                        className="flex items-start justify-between gap-4 p-4"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground">
-                            {item?.name || "Unnamed item"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {qty} × {formatMoney(price)}
-                          </p>
-                        </div>
-                        <p className="shrink-0 font-semibold text-foreground">
-                          {formatMoney(qty * price)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="p-4 text-sm text-muted-foreground">No items available.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <div className="flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg", toneClasses[tone].icon)}
+      >
+        <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+      </span>
+      <StatusPill tone={tone}>{status}</StatusPill>
+    </div>
   );
 }
 
@@ -274,49 +187,175 @@ function DetailField({ label, value }) {
   );
 }
 
-function OrderCard({ order, onRequestStatusChange, isUpdating }) {
+function OrderDetailsSheet({ order }) {
+  const items = getItems(order);
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl border-border/70 bg-background/80"
+        >
+          View details
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-xl sm:p-6">
+        <SheetHeader className="space-y-3 pr-8 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <PaymentBadge order={order} />
+            <StatusBadge status={order?.status || "Unknown"} />
+          </div>
+          <SheetTitle className="font-display text-2xl tracking-tight">
+            Order {getShortOrderId(order)}
+          </SheetTitle>
+          <SheetDescription>
+            Placed {formatDateTime(order?.createdAt)}. Full order and customer details are shown below.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-5">
+          <AdminPanel className="p-4">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              Order summary
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailField label="Order ID" value={getOrderId(order) || "—"} />
+              <DetailField label="Created" value={formatDateTime(order?.createdAt)} />
+              <DetailField label="Customer" value={getCustomerName(order)} />
+              <DetailField label="Email" value={getCustomerEmail(order)} />
+              <DetailField label="Phone" value={getCustomerPhone(order)} />
+              <DetailField
+                label="Location"
+                value={`${order?.hostel || "—"} · Room ${order?.room || "—"}`}
+              />
+              <DetailField label="Payment method" value={order?.paymentMethod || "—"} />
+              <DetailField label="Total paid" value={formatMoney(order?.total)} />
+            </div>
+          </AdminPanel>
+
+          <AdminPanel className="p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                Items
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {items.length} item{items.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {items.length > 0 ? (
+              <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
+                {items.map((item, index) => {
+                  const qty = Number(item?.qty) || 0;
+                  const price = Number(item?.price) || 0;
+                  return (
+                    <div
+                      key={`${item?.name || "item"}-${index}`}
+                      className="flex items-start justify-between gap-4 p-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">
+                          {item?.name || "Unnamed item"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {qty} × {formatMoney(price)}
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-semibold text-foreground">
+                        {formatMoney(qty * price)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                No items available.
+              </p>
+            )}
+          </AdminPanel>
+
+          <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+            <Lock aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{STATUS_UPDATE_UNAVAILABLE}</span>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Fulfillment is intentionally read-only: PUT /orders/:id/status is not deployed.
+ * This is a permanently disabled control — no onValueChange, no mutation, no dialog.
+ */
+function FulfillmentControl({ order }) {
+  const status = order?.status || "Preparing";
+
+  return (
+    <div className="w-full space-y-2 sm:max-w-[280px]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Fulfillment status
+      </p>
+      <button
+        type="button"
+        disabled
+        aria-label={`Order ${getShortOrderId(order)} fulfillment status: ${status}. ${STATUS_UPDATE_UNAVAILABLE}`}
+        className="flex min-h-10 w-full items-center justify-between gap-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2 text-left disabled:cursor-not-allowed"
+      >
+        <StatusPill tone={getStatusToneName(status)}>{status}</StatusPill>
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          Read only
+        </span>
+      </button>
+      <p className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+        <Lock aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>{STATUS_UPDATE_UNAVAILABLE}</span>
+      </p>
+      <p className="text-xs text-muted-foreground">Placed {formatDate(order?.createdAt)}</p>
+    </div>
+  );
+}
+
+function OrderCard({ order }) {
   const items = getItems(order);
   const visibleItems = items.slice(0, 3);
   const remainingCount = Math.max(items.length - visibleItems.length, 0);
   const status = order?.status || "Preparing";
-  const StatusIcon = getStatusIcon(status);
-  const orderId = getOrderId(order);
 
   return (
-    <Card className="group overflow-hidden border-border/70 bg-card/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-      <CardHeader className="space-y-4 border-b border-border/60 bg-gradient-to-b from-muted/30 to-transparent p-5">
+    <AdminPanel
+      as="article"
+      className="group flex h-full flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+    >
+      <div className="space-y-3 border-b border-border/60 bg-gradient-to-b from-muted/40 to-transparent p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-display text-xl tracking-tight text-foreground">
                 {getShortOrderId(order)}
               </p>
-              <Badge
-                variant="outline"
-                className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700"
-              >
-                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                Paid
-              </Badge>
-              <Badge variant="outline" className={cn("rounded-full", getStatusTone(status))}>
-                <StatusIcon className="mr-1 h-3.5 w-3.5" />
-                {status}
-              </Badge>
+              <PaymentBadge order={order} />
             </div>
-            <p className="text-sm text-muted-foreground">{formatDateTime(order?.createdAt)}</p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>{formatDateTime(order?.createdAt)}</span>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Total paid
             </p>
-            <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            <p className="mt-1 font-display text-2xl leading-none tabular-nums text-foreground">
               {formatMoney(order?.total)}
             </p>
           </div>
         </div>
-      </CardHeader>
+        <StatusBadge status={status} />
+      </div>
 
-      <CardContent className="space-y-5 p-5">
+      <div className="flex flex-1 flex-col gap-5 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -330,7 +369,10 @@ function OrderCard({ order, onRequestStatusChange, isUpdating }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Delivery
             </p>
-            <p className="font-medium text-foreground">{order?.hostel || "—"}</p>
+            <p className="flex items-start gap-1.5 font-medium text-foreground">
+              <MapPin aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span>{order?.hostel || "—"}</span>
+            </p>
             <p className="text-sm text-muted-foreground">Room {order?.room || "—"}</p>
             <p className="text-sm text-muted-foreground">
               Paid via <span className="font-medium text-foreground">{order?.paymentMethod || "—"}</span>
@@ -338,8 +380,8 @@ function OrderCard({ order, onRequestStatusChange, isUpdating }) {
           </div>
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/15 p-4">
-          <div className="flex items-center justify-between gap-3">
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Order items
             </p>
@@ -372,109 +414,43 @@ function OrderCard({ order, onRequestStatusChange, isUpdating }) {
             )}
           </div>
           {remainingCount > 0 ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-3 text-xs text-muted-foreground">
               +{remainingCount} more item{remainingCount === 1 ? "" : "s"} in details
             </p>
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="w-full space-y-2 sm:max-w-[220px]">
-            <label
-              htmlFor={`status-${orderId}`}
-              className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-            >
-              Fulfillment status
-            </label>
-            <Select
-              value={STATUS_OPTIONS.includes(status) ? status : undefined}
-              onValueChange={(value) => onRequestStatusChange(order, value)}
-              disabled={isUpdating || !orderId}
-            >
-              <SelectTrigger
-                id={`status-${orderId}`}
-                className="h-10 rounded-xl bg-background"
-                aria-label={`Update status for order ${getShortOrderId(order)}`}
-              >
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="min-h-5 text-xs text-muted-foreground">
-              {isUpdating ? "Updating status..." : `Placed ${formatDate(order?.createdAt)}`}
-            </p>
-          </div>
-
+        <div className="mt-auto flex flex-col gap-4 border-t border-border/60 pt-4 sm:flex-row sm:items-end sm:justify-between">
+          <FulfillmentControl order={order} />
           <OrderDetailsSheet order={order} />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <Card key={index} className="border-border/70">
-            <CardContent className="space-y-3 p-5">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-4 w-32" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <Card className="border-border/70">
-        <CardContent className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <Card key={index} className="border-border/70">
-            <CardHeader className="space-y-3 p-5">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-4 w-28" />
-            </CardHeader>
-            <CardContent className="space-y-3 p-5">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-20 w-full rounded-2xl" />
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+    <LoadingBlock
+      variant="rows"
+      rows={6}
+      label="Loading paid orders"
+      caption="Fetching the latest successful payments…"
+    />
   );
 }
 
 function OrderManagementPage() {
   const { data, error, isPending, isFetching, refetch } = useAdminOrdersQuery();
-  const { mutateAsync: updateOrderStatus } = useUpdateOrderStatusMutation();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-  const [updatingIds, setUpdatingIds] = useState(() => new Set());
-  const [pendingStatusChange, setPendingStatusChange] = useState(null);
 
   const allOrders = Array.isArray(data) ? data : [];
 
   // ONLY PAID ORDERS
   const orders = allOrders.filter((o) => o?.paymentStatus === "Paid");
-  const loading = isPending;
 
   useEffect(() => {
     if (error) toast.error("Failed to load orders");
@@ -552,49 +528,6 @@ function OrderManagementPage() {
     return filtered;
   }, [orders, search, statusFilter, sortBy]);
 
-  const requestStatusChange = (order, nextStatus) => {
-    const orderId = getOrderId(order);
-    const currentStatus = order?.status || "Preparing";
-    if (!orderId || !nextStatus || nextStatus === currentStatus) return;
-    setPendingStatusChange({
-      orderId,
-      nextStatus,
-      currentStatus,
-      customerName: getCustomerName(order),
-      shortId: getShortOrderId(order),
-    });
-  };
-
-  const updateStatus = async (id, status) => {
-    if (!id) return false;
-    setUpdatingIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-    try {
-      await updateOrderStatus({ id, status });
-      toast.success("Status updated");
-      return true;
-    } catch {
-      toast.error("Failed to update status");
-      return false;
-    } finally {
-      setUpdatingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
-  };
-
-  const confirmStatusChange = async () => {
-    if (!pendingStatusChange) return;
-    const { orderId, nextStatus } = pendingStatusChange;
-    const ok = await updateStatus(orderId, nextStatus);
-    if (ok) setPendingStatusChange(null);
-  };
-
   const hasActiveFilters = search.trim() || statusFilter !== "all" || sortBy !== "newest";
 
   const clearFilters = () => {
@@ -609,15 +542,11 @@ function OrderManagementPage() {
       title="Paid Orders"
       description="Track successful payments, monitor fulfillment, and update order progress from one premium operations view."
       actions={
-        <Button
-          variant="outline"
+        <RefreshButton
           onClick={() => refetch()}
-          disabled={isFetching}
-          className="rounded-full border-border/70 bg-background/80"
-        >
-          <RefreshCcw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-          {isFetching ? "Refreshing" : "Refresh"}
-        </Button>
+          isFetching={isFetching}
+          label={isFetching ? "Refreshing" : "Refresh"}
+        />
       }
     >
       <div className="space-y-6">
@@ -630,247 +559,182 @@ function OrderManagementPage() {
             label="Paid Orders"
             value={stats.paidCount}
             hint="Successful payments only"
-            tone="border-primary/20 bg-primary/10 text-primary"
+            tone="forest"
+            isLoading={isPending}
           />
           <StatCard
             icon={Users}
             label="Paid Students"
             value={stats.paidStudents}
             hint="Distinct students with paid orders"
-            tone="border-violet-200 bg-violet-50 text-violet-700"
+            tone="violet"
+            isLoading={isPending}
           />
           <StatCard
             icon={UserCheck}
             label="Students To Deliver"
             value={stats.studentsToDeliver}
             hint="Paid students awaiting delivery"
-            tone="border-orange-200 bg-orange-50 text-orange-700"
+            tone="gold"
+            isLoading={isPending}
           />
           <StatCard
             icon={ReceiptText}
             label="Revenue"
             value={formatMoney(stats.revenue)}
             hint="Total from paid orders"
-            tone="border-emerald-200 bg-emerald-50 text-emerald-700"
+            tone="fresh"
+            isLoading={isPending}
           />
           <StatCard
             icon={Clock3}
             label="Preparing"
             value={stats.preparing}
             hint={`${stats.ready} ready for handoff`}
-            tone="border-amber-200 bg-amber-50 text-amber-700"
+            tone="gold"
+            isLoading={isPending}
           />
           <StatCard
             icon={PackageCheck}
             label="Delivered"
             value={stats.delivered}
             hint={`${stats.paidCount - stats.delivered} still in progress`}
-            tone="border-sky-200 bg-sky-50 text-sky-700"
+            tone="fresh"
+            isLoading={isPending}
           />
         </section>
 
-        <Card className="border-border/70 bg-card/80 shadow-sm backdrop-blur-sm">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div className="grid flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px]">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="order-search"
-                    className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-                  >
-                    Search orders
-                  </label>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="order-search"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search by order, customer, hostel, or room"
-                      className="h-10 rounded-xl pl-9 pr-9"
-                    />
-                    {search ? (
-                      <button
-                        type="button"
-                        onClick={() => setSearch("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                        aria-label="Clear search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="status-filter"
-                    className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-                  >
-                    Status
-                  </label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger id="status-filter" className="h-10 rounded-xl bg-background">
-                      <SelectValue placeholder="All statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      {STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="sort-orders"
-                    className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
-                  >
-                    Sort by
-                  </label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger id="sort-orders" className="h-10 rounded-xl bg-background">
-                      <SelectValue placeholder="Sort orders" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest first</SelectItem>
-                      <SelectItem value="oldest">Oldest first</SelectItem>
-                      <SelectItem value="total-high">Total: high to low</SelectItem>
-                      <SelectItem value="total-low">Total: low to high</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/20 px-3 py-2">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  <span>
-                    Showing <span className="font-medium text-foreground">{filteredOrders.length}</span> of{" "}
-                    <span className="font-medium text-foreground">{orders.length}</span> paid orders
-                  </span>
-                </div>
+        <AdminPanel as="section" aria-label="Paid order tools" className="p-4 sm:p-5">
+          <SectionHeading
+            eyebrow="Live board"
+            title="Order directory"
+            description="Search, filter, and sort successful payments."
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <SlidersHorizontal aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  {isPending ? (
+                    <span>Loading paid orders…</span>
+                  ) : (
+                    <span>
+                      Showing <span className="font-semibold text-foreground">{filteredOrders.length}</span>{" "}
+                      of <span className="font-semibold text-foreground">{orders.length}</span> paid orders
+                    </span>
+                  )}
+                </span>
                 {hasActiveFilters ? (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="rounded-full"
+                  >
                     Clear filters
                   </Button>
                 ) : null}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            }
+          />
 
-        {loading ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px]">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="order-search"
+                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                Search orders
+              </label>
+              <div className="relative">
+                <SearchField
+                  id="order-search"
+                  label="Search orders"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by order, customer, hostel, or room"
+                  className="pr-10"
+                />
+                {search ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                    aria-label="Clear search"
+                  >
+                    <X aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="status-filter"
+                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                Status
+              </label>
+              <FilterSelect
+                id="status-filter"
+                label="Filter paid orders by status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={STATUS_FILTER_OPTIONS}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="sort-orders"
+                className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                Sort by
+              </label>
+              <FilterSelect
+                id="sort-orders"
+                label="Sort paid orders"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                options={SORT_OPTIONS}
+              />
+            </div>
+          </div>
+        </AdminPanel>
+
+        {error ? (
+          <ErrorState
+            title="Couldn’t load paid orders"
+            description="We couldn’t reach the orders service. Check your connection and try again."
+            onRetry={() => refetch()}
+            retryLabel="Retry"
+          />
+        ) : isPending ? (
           <LoadingState />
         ) : orders.length === 0 ? (
-          <Card className="border-dashed border-border/80 bg-card/60 shadow-none">
-            <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              <h2 className="mt-5 font-display text-2xl tracking-tight text-foreground">
-                No paid orders yet
-              </h2>
-              <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                Successful Paystack payments will appear here as soon as customers complete checkout.
-              </p>
-              <Button variant="outline" onClick={() => refetch()} className="mt-6 rounded-full">
-                <RefreshCcw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
-                Check again
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={CheckCircle2}
+            title="No paid orders yet"
+            description="Successful Paystack payments will appear here as soon as customers complete checkout."
+            action={<RefreshButton onClick={() => refetch()} isFetching={isFetching} label="Check again" />}
+          />
         ) : filteredOrders.length === 0 ? (
-          <Card className="border-dashed border-border/80 bg-card/60 shadow-none">
-            <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-muted/30 text-muted-foreground">
-                <Search className="h-7 w-7" />
-              </div>
-              <h2 className="mt-5 font-display text-2xl tracking-tight text-foreground">
-                No matching orders
-              </h2>
-              <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                Try adjusting your search, status filter, or sort to find the paid order you’re looking for.
-              </p>
-              <Button variant="outline" onClick={clearFilters} className="mt-6 rounded-full">
+          <EmptyState
+            icon={Search}
+            title="No matching orders"
+            description="Try adjusting your search, status filter, or sort to find the paid order you’re looking for."
+            action={
+              <Button variant="outline" onClick={clearFilters} className="rounded-xl">
                 Clear filters
               </Button>
-            </CardContent>
-          </Card>
+            }
+          />
         ) : (
           <section aria-label="Paid orders" className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {filteredOrders.map((order, index) => {
               const id = getOrderId(order);
-              return (
-                <OrderCard
-                  key={id || `order-${index}`}
-                  order={order}
-                  onRequestStatusChange={requestStatusChange}
-                  isUpdating={id ? updatingIds.has(id) : false}
-                />
-              );
+              return <OrderCard key={id || `order-${index}`} order={order} />;
             })}
           </section>
         )}
-
-        <AlertDialog
-          open={!!pendingStatusChange}
-          onOpenChange={(open) => {
-            if (!open && !(pendingStatusChange && updatingIds.has(pendingStatusChange.orderId))) {
-              setPendingStatusChange(null);
-            }
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm status change</AlertDialogTitle>
-              <AlertDialogDescription>
-                {pendingStatusChange ? (
-                  <>
-                    Change order{" "}
-                    <span className="font-medium text-foreground">{pendingStatusChange.shortId}</span>
-                    {pendingStatusChange.customerName ? (
-                      <>
-                        {" "}
-                        for{" "}
-                        <span className="font-medium text-foreground">
-                          {pendingStatusChange.customerName}
-                        </span>
-                      </>
-                    ) : null}{" "}
-                    from{" "}
-                    <span className="font-medium text-foreground">{pendingStatusChange.currentStatus}</span>{" "}
-                    to{" "}
-                    <span className="font-medium text-foreground">{pendingStatusChange.nextStatus}</span>?
-                  </>
-                ) : (
-                  "Confirm the fulfillment status update for this order."
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                disabled={pendingStatusChange ? updatingIds.has(pendingStatusChange.orderId) : false}
-              >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                disabled={pendingStatusChange ? updatingIds.has(pendingStatusChange.orderId) : false}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void confirmStatusChange();
-                }}
-              >
-                {pendingStatusChange && updatingIds.has(pendingStatusChange.orderId)
-                  ? "Updating..."
-                  : "Confirm change"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </AdminShell>
   );

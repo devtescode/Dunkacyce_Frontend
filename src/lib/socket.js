@@ -1,6 +1,10 @@
 import { io } from "socket.io-client";
 
-export const SOCKET_URL = "https://dunkacyce-backend.onrender.com";
+export const SOCKET_URL = String(
+  import.meta.env?.VITE_SOCKET_URL ||
+    import.meta.env?.VITE_API_URL ||
+    "https://dunkacyce-backend.onrender.com",
+).replace(/\/+$/, "");
 
 export const socket = io(SOCKET_URL, {
   transports: ["polling", "websocket"], // 👈 IMPORTANT FIX

@@ -6,6 +6,31 @@ Documentation and audit record for the admin-facing part of the frontend. Last a
 
 ---
 
+## 0. 2026 Visual redesign (implementation record — 2026-11-21)
+
+A visual-only pass over the admin surface (deep forest / fresh green / off-white / gold, a working light/dark/system theme, a shared component kit, curated food photography and responsive layouts). This is a record of what was implemented; the audit findings in §6 (S1–S8, F1–F12) and the backend gaps in §7 remain open unless explicitly noted below.
+
+| Area | What changed |
+| --- | --- |
+| Tokens | `src/styles.css` keeps every existing token name and adds forest/fresh/gold/surface aliases, a full `.dark` token block, `@custom-variant dark`, the `dk-spin` / `dk-float` / `dk-shimmer` / `dk-pulse-soft` keyframes and `.admin-panel`, `.admin-eyebrow`, `.admin-focus`, `.preview-stripe` helpers. |
+| Theme controller | `src/lib/theme.jsx` exports `ThemeProvider` and `useTheme()` → `{ theme, setTheme, toggleTheme, resolvedTheme }` (`light` / `dark` / `system`). Mounted in `src/routes/__root.jsx` around `QueryClientProvider`; preference persisted in `localStorage["dunnkayce-theme"]`. |
+| No theme flash | A pre-paint inline script in `index.html` reads `dunnkayce-theme` / `prefers-color-scheme` and applies `.dark` + `color-scheme` before CSS paints; the broken `/vite.svg` favicon was replaced with an inline forest-green SVG data URI. |
+| Theme toggle | `ThemeToggle` appears in the `AdminNavbar` desktop sidebar, mobile bar and drawer; the themed `src/components/ui/sonner.jsx` wrapper is mounted with `resolvedTheme` and `position="top-center"`. |
+| Shared kit | New `src/components/admin/` (barrel `src/components/admin/index.js`) exports `AdminPanel`, `SectionHeading`, `StatCard`, `StatusPill`, `SearchField`, `FilterSelect`, `RefreshButton`, `EmptyState`, `ErrorState`, `LoadingBlock`, `FoodImage`, `ThemeToggle`, `PreviewBadge`, `PreviewBanner`, `PageHeader`, plus shared `toneClasses` / `TONE_NAMES` / `resolveTone`. Presentational only: no data fetching, API hooks or router navigation. |
+| Food imagery | `src/lib/foodImages.js` exports `FOOD_PHOTOS` (stable Unsplash URLs by category), `FOOD_HIGHLIGHTS`, `getFoodPhoto()` (deterministic fallback by name) and `FOOD_FALLBACK_SVG` (local plate illustration). `FoodImage` uses fixed `aspect-[4/3]` frames, `loading="lazy"`, `referrerPolicy="no-referrer"` and a one-shot local fallback — no remote placeholder service. |
+| Pages / chrome | Restyled: `admin.jsx`, `adminlogin.jsx`, `admin-dashboard.jsx`, the Users page, food management, order management, student cart, change-password and all five hidden previews; `AdminShell`, `AdminNavbar` and `DunnkayceLoader` carry the forest/gold chrome. Layouts are responsive from a 360px mobile drawer through tablet to the desktop sidebar/table. |
+
+Intentional behavior/UX changes (visual scope only):
+
+- **Order status stays disabled:** the per-order control renders a permanent "Status updates unavailable — backend endpoint not deployed" hint. `PUT /orders/:id/status` is **still missing in the backend**, so no enabled control calls `useUpdateOrderStatusMutation`. This supersedes the "control is still active" wording in §4.5/F7, but F7 remains open until the endpoint ships.
+- **Explicit error states:** orders, carts, users, food management and dashboard now render `ErrorState` with the existing `refetch()` instead of falling through to an empty state (the UI side of F8 only). Change-password and all hidden previews remain non-functional previews with `noindex, nofollow` meta, disabled/mock controls and no sidebar links.
+- **Small UI/accessibility changes:** Escape-to-close and `inert` on the closed mobile drawer, dialog focus handling, `noopener,noreferrer` on the support link, `role="status"` / `aria-live` skeletons, `_id ?? id`-style normalization and local image fallbacks. These are presentation/keyboard fixes and **do not close S1–S8**, F1–F6 or F9–F12.
+- **Preserved:** every route path and `createFileRoute` call, all hooks, query keys and API endpoints, toast/filter/sort/form-payload behavior, session writes, and all uncommitted user work (notably the Users page/query/key, socket env change, `client.js` error sanitization and the `disconnectAdminSocket()` logout call). No new backend endpoint was added.
+- **Verification:** `npm.cmd run build` passes (Vite 7; only the pre-existing chunk-size warning).
+- **Reference:** no visual reference image was present in the workspace; the redesign followed the written brief and `DESIGN_SYSTEM.md`.
+
+---
+
 ## 1. Quick start
 
 ```powershell
@@ -29,6 +54,7 @@ All admin routes are **flat children of `__root`** in `src/routeTree.gen.ts` (au
 | `/admin` | `admin.jsx` | Active — redirect stub | No | Reads `sessionStorage` |
 | `/adminlogin` | `adminlogin.jsx` | Active — login + first-admin setup | No | `admin/exists`, `admin/register`, `admin/login` |
 | `/admin-dashboard` | `admin-dashboard.jsx` | Active — overview | Yes | Dashboard stats, rush hour |
+| `/admin-dashboard-users` | `admin-dashboard-users.jsx` | Active — registered user directory | Yes | `admin/users` |
 | `/admin-dashboard-food-management` | `admin-dashboard-food-management.jsx` | Active — full CRUD | Yes | `GET/POST/PUT/DELETE /food` |
 | `/admin-dashboard-order-management` | `admin-dashboard-order-management.jsx` | Active — paid orders | Yes | `admin/getorders`, `orders/:id/status` |
 | `/admin-dashboard-student-cart` | `admin-dashboard-student-cart.jsx` | Active — read-only carts | Yes | `admin/carts` |
@@ -110,6 +136,13 @@ Reads `adminToken` + `admin`; considers a session valid if both are truthy and `
 - No route-level guard; expired/missing tokens surface as generic toasts rather than a redirect.
 - Dialog has no Escape handler/focus trap; delete uses native `confirm()` and stays enabled during mutation. No MIME/size validation on uploads. Validation is toast-only with no inline errors. Images fall back to external `placehold.co`.
 
+### 4.4a `/admin-dashboard-users` — registered users
+- New `GET /admin/users` endpoint, called with the admin Bearer token (`auth: "admin"` → `Authorization: Bearer <sessionStorage.adminToken>`); unlike the older admin GETs, the backend gates this one with `middleware/adminAuth.js`.
+- Response shape: `{ users: [...] }`; each record carries `_id`, `email`, `fullName`, `phone`, `gender`, `balance`, `profilePicture`, `createdAt`, `updatedAt`, plus computed `orderCount` and `totalPaid` (paid orders only, grouped by `userId`). Passwords are excluded via an explicit field whitelist. Missing `users` falls back to `[]`.
+- `useAdminUsersQuery()` (`src/lib/api/queries.js`) wraps the call with cache key `["admin","users"]` (`queryKeys.admin.users()`). Manual refresh only — no polling or socket.
+- UI: summary stats (total users, paid customers, total paid, wallet balance), client-side search by name/email/phone, gender filter and 5 sort modes; responsive table on desktop and stacked cards on mobile; avatar images with initials fallback. Explicit loading, error/retry and empty states.
+- **Privacy:** this is a directory of real registered users (names, emails, phone numbers) — treat it as sensitive. Avoid screenshots/logs with live data until masking and a client-side route guard are in place.
+
 ### 4.5 `/admin-dashboard-order-management` — paid orders
 - `useAdminOrdersQuery()` (`GET /admin/getorders`) and `useUpdateOrderStatusMutation()` (`PUT /orders/:id/status`). UI title is "Paid Orders"; only `paymentStatus === "Paid"` is shown.
 - Search across ID/customer/delivery/payment fields, status filter, 4 sort modes, detail sheet with customer PII, per-order status `<select>` (disabled per-order while updating), manual refresh.
@@ -144,13 +177,14 @@ Other notes: the commented image-upload nav target `"/admin-dashboard/image-uplo
 | `useAdminDashboardStatsQuery` | `GET /admin/dashboard-stats` | **none — should be `auth: "admin"`** |
 | `useAdminOrdersQuery` | `GET /admin/getorders` | **none** |
 | `useAdminCartsQuery` | `GET /admin/carts` | **none** |
+| `useAdminUsersQuery` | `GET /admin/users` | `auth: "admin"` (Bearer; backend `middleware/adminAuth.js`) |
 | `useFoodsQuery` | `GET /food` | none (public read) |
 | `useRushHourQuery` | `GET /settings/rush-hour` | none |
 | Food create/update/delete | `POST/PUT/DELETE /food` | `auth: "admin"` |
 | `useToggleRushHourMutation` | `PATCH /settings/rush-hour` | `auth: "admin"` |
 | `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` | `auth: "admin"` (backend route missing) |
 
-Cache keys: `["auth","admin","exists"]`, `["admin","dashboard-stats"]`, `["admin","orders"]`, `["admin","carts"]`, `["foods"]`, `["settings","rush-hour"]`. `queryKeys.admin.all()` exists but is unused. Checkout/payment mutations invalidate `admin.carts` and `admin.dashboardStats` **but not `admin.orders`**, so the admin order list can stay stale.
+Cache keys: `["auth","admin","exists"]`, `["admin","dashboard-stats"]`, `["admin","orders"]`, `["admin","carts"]`, `["admin","users"]`, `["foods"]`, `["settings","rush-hour"]`. `queryKeys.admin.all()` exists but is unused. Checkout/payment mutations invalidate `admin.carts` and `admin.dashboardStats` **but not `admin.orders`**, so the admin order list can stay stale.
 
 `src/lib/store.js` is a legacy localStorage mock layer (`dunnkayce_state_v3`) with **plaintext demo credentials** (`admin@dunnkayce.com` / `admin123`), a client-side `login()` comparison, and local-only food/order mutations. Do not treat it as an authority for admin auth or data; remove demo credentials from production bundles. See `src/lib/api/README.md` for the full query/mutation reference.
 
@@ -172,6 +206,8 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 | S6 | `AdminNavbar.jsx:87-91`, `session.js:44-50` | Logout leaves `localStorage.authToken` (rehydrated by root) and logs out the student side too | Consolidate one logout that clears all keys + cache; split admin-only from full logout |
 | S7 | `AdminNavbar.jsx:236-252`, `food-management.jsx:457-468` | Dialogs lack focus trap/Escape; closed mobile drawer remains tab-focusable | Add focus management, `inert`/conditional mount, keyboard dismissal |
 | S8 | `client.js:85-103` | Network/CORS failures throw raw `TypeError`, not `ApiError`; raw server payloads are retained | Wrap `fetch`, sanitize error messages |
+
+**Auth boundary note:** `GET /admin/users` is the exception — it is admin-authenticated on the backend via `middleware/adminAuth.js` and sends `auth: "admin"` from the client. The older admin endpoints (`/admin/dashboard-stats`, `/admin/getorders`, `/admin/carts`, …) remain unauthenticated and still send no header (S3). Do not assume the admin API is uniformly gated.
 
 ### P1 — functional
 
@@ -210,7 +246,7 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 1. `PUT /orders/:id/status` is commented out — order status changes 404 (API README §6).
 2. `PATCH /settings/rush-hour` **toggles** server-side and ignores the request body; trust the response's `rushHour`, not the sent value.
 3. `/admin/dashboard-change-password` has no endpoint.
-4. All admin user routes are unauthenticated on the backend.
+4. Older admin data routes (`/admin/dashboard-stats`, `/admin/getorders`, `/admin/carts`) remain unauthenticated; the new `GET /admin/users` is gated by `middleware/adminAuth.js`.
 5. Signup (user-facing) returns no token.
 
 ---
@@ -231,4 +267,5 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 
 - `src/routes/README.md` — file-based routing conventions.
 - `src/lib/api/README.md` — full query/mutation/key reference and backend caveats.
+- `DESIGN_SYSTEM.md` — 2026 visual redesign contract (tokens, theme, shared kit and page rules).
 - `package.json` — scripts and dependencies (React 19, TanStack Router/Query, Tailwind v4, Vite 7).

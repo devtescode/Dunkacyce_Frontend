@@ -40,6 +40,7 @@ All backend calls go through this folder. Components should **not** call `fetch(
 | `useAdminDashboardStatsQuery(options)` | `GET /admin/dashboard-stats` | `{ totalStudents, totalOrders, weeklyRevenue, paidStudents, studentsToDelivery }` (missing fields default to `0`) | `["admin","dashboard-stats"]` |
 | `useAdminOrdersQuery(options)` | `GET /admin/getorders` | `Order[]` (`data.orders`) | `["admin","orders"]` |
 | `useAdminCartsQuery(options)` | `GET /admin/carts` | `Cart[]` (`data.carts`) | `["admin","carts"]` |
+| `useAdminUsersQuery(options)` | `GET /admin/users` (admin Bearer) | `AdminUser[]` (`data.users`) — `_id`, `email`, `fullName`, `phone`, `gender`, `balance`, `profilePicture`, `createdAt`, `updatedAt`, `orderCount`, `totalPaid` | `["admin","users"]` |
 
 All hooks accept React Query options and spread them last (so `staleTime`, `refetchInterval`, etc. can be overridden). `useFoodsQuery` / `useRushHourQuery` default to `staleTime: 10_000`; `user-dashboard.jsx` passes `refetchInterval: 5000` to both.
 
@@ -114,7 +115,7 @@ Invalidation uses the shared helper configs `useCartMutationConfig`, `useOrderMu
 - **Signup returns no token.** `signup.jsx` checks `data.token ?? data.accessToken` and `data.user ?? data.admin`; until the backend returns both, no authenticated session is created after signup (the user lands on `/` signed out).
 - **`/admin/dashboard-change-password` has no backend endpoint.** `admin-dashboard-change-password.jsx` is a placeholder form with no submit handler; only the user-facing `/change-password` page is wired.
 - **`PATCH /settings/rush-hour` toggles server-side and ignores the request body.** The dashboard passes `{ status: true }`, but the resulting state comes from the response's `rushHour` — do not treat the sent value as authoritative.
-- **All admin user routes are unauthenticated on the backend**, despite `client.js` attaching the admin JWT (`sessionStorage.adminToken`). Route-level auth checks in the frontend are UI guards only.
+- **Most admin user routes are unauthenticated on the backend**, despite `client.js` attaching the admin JWT (`sessionStorage.adminToken`). Route-level auth checks in the frontend are UI guards only. The exception is the new `GET /admin/users`, which is gated by `middleware/adminAuth.js` (verifies `ADMIN_JWT_SECRET` + `role === "admin"`).
 
 All `queryKeys` entries are factory functions (including `foods.all()` and `orders.all()`), so they can be passed directly to `useQuery`, `setQueryData` and `invalidateQueries`.
 

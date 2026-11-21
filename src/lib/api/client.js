@@ -93,10 +93,20 @@ export async function apiFetch(path, options = {}) {
   const payload = await parsePayload(response);
 
   if (!response.ok) {
-    const message =
+    let message =
       (payload && typeof payload === "object" && (payload.message || payload.error)) ||
       (typeof payload === "string" && payload) ||
       `Request failed with status ${response.status}`;
+
+    if (typeof message === "string") {
+      const htmlRouteError = message.match(/Cannot\s+(GET|POST|PUT|PATCH|DELETE)\s+([^\s<]+)/i);
+      if (htmlRouteError) {
+        message = `API route not found: ${htmlRouteError[1]} ${htmlRouteError[2]}. Check VITE_API_URL/backend deployment.`;
+      } else if (message.includes("<!DOCTYPE html") || message.includes("<html")) {
+        message = `Request failed with status ${response.status}`;
+      }
+    }
+
     throw new ApiError(message, { status: response.status, payload });
   }
 
