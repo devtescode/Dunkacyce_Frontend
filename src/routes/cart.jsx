@@ -85,7 +85,7 @@ function CartPage() {
     navigate({ to: "/checkout" });
   };
 
-  // 🛒 EMPTY CART
+  // 🛒 EMPTY CARuser-dashboardT
   if (!loading && cart.length === 0) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-16 text-center">
@@ -95,7 +95,7 @@ function CartPage() {
           Add some delicious meals to get started.
         </p>
         <button
-          onClick={() => navigate({ to: "/" })}
+          onClick={() => navigate({ to: "/user-dashboard" })}
           className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground"
         >
           Browse menu

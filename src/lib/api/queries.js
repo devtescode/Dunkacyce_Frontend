@@ -131,6 +131,8 @@ export async function fetchAdminDashboardStats() {
     weeklyRevenue: data?.weeklyRevenue ?? 0,
     paidStudents: data?.paidStudents ?? 0,
     studentsToDelivery: data?.studentsToDelivery ?? 0,
+    lowStockSwallows: Array.isArray(data?.lowStockSwallows) ? data.lowStockSwallows : [],
+    lowStockSwallowCount: Number(data?.lowStockSwallowCount ?? (Array.isArray(data?.lowStockSwallows) ? data.lowStockSwallows.length : 0)) || 0,
   };
 }
 
@@ -164,6 +166,19 @@ export function useAdminCartsQuery(options = {}) {
   return useQuery({
     queryKey: queryKeys.admin.carts(),
     queryFn: fetchAdminCarts,
+    ...options,
+  });
+}
+
+export async function fetchAdminUsers() {
+  const data = await api.get("/admin/users", { auth: "admin" });
+  return data?.users ?? [];
+}
+
+export function useAdminUsersQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.admin.users(),
+    queryFn: fetchAdminUsers,
     ...options,
   });
 }

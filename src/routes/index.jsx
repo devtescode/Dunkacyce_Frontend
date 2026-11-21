@@ -12,7 +12,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Order limited-slot meals delivered straight to your hostel room at Elizade University. Pay with Paystack or Moniepoint.",
+          "Order freshly prepared meals delivered straight to your hostel room at Elizade University. Pay with Paystack or Moniepoint.",
       },
     ],
   }),

@@ -30,16 +30,17 @@ All backend calls go through this folder. Components should **not** call `fetch(
 
 | Hook | Endpoint | `data` shape | Cache key |
 | --- | --- | --- | --- |
-| `useFoodsQuery(options)` | `GET /food` | `Food[]` (`data.foods`, default `[]`) | `["foods"]` |
+| `useFoodsQuery(options)` | `GET /food` | `Food[]` (`data.foods`, default `[]`); food records may include `availableSoups` and `swallowQuantity` | `["foods"]` |
 | `useRushHourQuery(options)` | `GET /settings/rush-hour` | `boolean` (`data.rushHour`) | `["settings","rush-hour"]` |
 | `useCurrentUserCartQuery(options)` | `GET /cart/getusercart` (user JWT) | `CartItem[]` (`data.cart`, default `[]`); disabled until a user token exists | `["cart","current"]` |
 | `useUserOrdersQuery(userId, options)` | `GET /orders/user/:userId` | `Order[]` (`data.orders`); disabled without `userId` | `["orders","user",userId]` |
 | `usePaymentHistoryQuery(userId, options)` | `GET /orders/user/:userId/receipts` | receipt `Order[]` (`data.orders`); disabled without `userId` | `["orders","receipts",userId]` |
 | `useProfileQuery(options)` | `GET /dunnkayce/profile` (user JWT) | current user profile (`data.user`, default `null`); disabled until a user token exists | `["profile","current"]` |
 | `useAdminExistsQuery(options)` | `GET /admin/exists` | `boolean` (`data.exists`) | `["auth","admin","exists"]` |
-| `useAdminDashboardStatsQuery(options)` | `GET /admin/dashboard-stats` | `{ totalStudents, totalOrders, weeklyRevenue, paidStudents, studentsToDelivery }` (missing fields default to `0`) | `["admin","dashboard-stats"]` |
+| `useAdminDashboardStatsQuery(options)` | `GET /admin/dashboard-stats` | `{ totalStudents, totalOrders, weeklyRevenue, paidStudents, studentsToDelivery, lowStockSwallows, lowStockSwallowCount }` (numeric fields default to `0`; `lowStockSwallows` defaults to `[]`) | `["admin","dashboard-stats"]` |
 | `useAdminOrdersQuery(options)` | `GET /admin/getorders` | `Order[]` (`data.orders`) | `["admin","orders"]` |
 | `useAdminCartsQuery(options)` | `GET /admin/carts` | `Cart[]` (`data.carts`) | `["admin","carts"]` |
+| `useAdminUsersQuery(options)` | `GET /admin/users` (admin Bearer) | `AdminUser[]` (`data.users`) — `_id`, `email`, `fullName`, `phone`, `gender`, `balance`, `profilePicture`, `createdAt`, `updatedAt`, `orderCount`, `totalPaid` | `["admin","users"]` |
 
 All hooks accept React Query options and spread them last (so `staleTime`, `refetchInterval`, etc. can be overridden). `useFoodsQuery` / `useRushHourQuery` default to `staleTime: 10_000`; `user-dashboard.jsx` passes `refetchInterval: 5000` to both.
 
@@ -58,8 +59,8 @@ All hooks accept React Query options and spread them last (so `staleTime`, `refe
 | `useRemoveFromCartMutation` | `DELETE /cart/removefromcart/:cartId` (user) | `cartId` (string) | `cart.current`, `admin.carts` |
 | `useCreateOrderMutation` | `POST /orders/create` | `{ userId, items: [{ foodId, name, price, qty, soupType }], hostel, room, total, paymentMethod }` → response includes `reference` | `orders.all`, `cart.current`, `admin.carts`, `admin.dashboardStats` |
 | `useInitializePaymentMutation` | `POST /cart/initialize-payment` | `{ email, amount, reference }` → response includes `authorization_url` | same as `orders.all` group above |
-| `useCreateFoodMutation` | `POST /food` (admin) | `FormData` (image upload) or `{ name, price, category, imageUrl, status, isSwallow, dailyLimit }` | `foods.all`, `admin.carts` |
-| `useUpdateFoodMutation` | `PUT /food/:id` (admin) | `{ id, payload }` (`payload` = form object or `FormData`) | `foods.all`, `admin.carts` |
+| `useCreateFoodMutation` | `POST /food` (admin) | `FormData` (image upload) or `{ name, price, category, imageUrl, status, isSwallow, availableSoups, swallowQuantity }` | `foods.all`, `admin.carts` |
+| `useUpdateFoodMutation` | `PUT /food/:id` (admin) | `{ id, payload }` (`payload` = form object or `FormData`; may include `availableSoups`, `swallowQuantity`) | `foods.all`, `admin.carts` |
 | `useDeleteFoodMutation` | `DELETE /food/:id` (admin) | `id` (string) | `foods.all`, `admin.carts` |
 | `useToggleRushHourMutation` | `PATCH /settings/rush-hour` (admin) | defaults to `{}`; dashboard sends `{ status: true }` | `setQueryData` from `data.rushHour`, then invalidates `settings.rushHour` |
 | `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` (admin) | `{ id, status }` | `setQueryData` patches matching `_id`, then invalidates `admin.orders` |
@@ -114,7 +115,7 @@ Invalidation uses the shared helper configs `useCartMutationConfig`, `useOrderMu
 - **Signup returns no token.** `signup.jsx` checks `data.token ?? data.accessToken` and `data.user ?? data.admin`; until the backend returns both, no authenticated session is created after signup (the user lands on `/` signed out).
 - **`/admin/dashboard-change-password` has no backend endpoint.** `admin-dashboard-change-password.jsx` is a placeholder form with no submit handler; only the user-facing `/change-password` page is wired.
 - **`PATCH /settings/rush-hour` toggles server-side and ignores the request body.** The dashboard passes `{ status: true }`, but the resulting state comes from the response's `rushHour` — do not treat the sent value as authoritative.
-- **All admin user routes are unauthenticated on the backend**, despite `client.js` attaching the admin JWT (`sessionStorage.adminToken`). Route-level auth checks in the frontend are UI guards only.
+- **Most admin user routes are unauthenticated on the backend**, despite `client.js` attaching the admin JWT (`sessionStorage.adminToken`). Route-level auth checks in the frontend are UI guards only. The exception is the new `GET /admin/users`, which is gated by `middleware/adminAuth.js` (verifies `ADMIN_JWT_SECRET` + `role === "admin"`).
 
 All `queryKeys` entries are factory functions (including `foods.all()` and `orders.all()`), so they can be passed directly to `useQuery`, `setQueryData` and `invalidateQueries`.
 

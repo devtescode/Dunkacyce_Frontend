@@ -15,7 +15,8 @@ import { store } from "@/lib/store";
 import { getSessionToken, setSessionToken } from "@/lib/session";
 import { Navbar } from "@/components/Navbar";
 import { DunnkayceLoader } from "@/components/DunnkayceLoader";
-import { Toaster } from "sonner";
+import { ThemeProvider, useTheme } from "@/lib/theme";
+import { Toaster } from "@/components/ui/sonner";
 
 function RootShell({ children }) {
   return (
@@ -25,6 +26,11 @@ function RootShell({ children }) {
       <Scripts />
     </>
   );
+}
+
+function ThemedToaster() {
+  const { resolvedTheme } = useTheme();
+  return <Toaster theme={resolvedTheme} richColors position="top-center" />;
 }
 
 export const Route = createRootRouteWithContext()({
@@ -77,7 +83,8 @@ function RootComponent() {
   const isAdmin = pathname?.startsWith("/admin");
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
         {!isAdmin && <Navbar />}
 
@@ -96,7 +103,8 @@ function RootComponent() {
         </div>
       </div>
 
-      <Toaster richColors position="top-center" />
-    </QueryClientProvider>
+      <ThemedToaster />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

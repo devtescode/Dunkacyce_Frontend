@@ -27,6 +27,7 @@ const normalizeFood = (food) => ({
   id: food._id ?? food.id,
   image: food.imageUrl ?? food.image ?? "",
   category: food.category ?? "Foods",
+  isSwallow: Boolean(food?.isSwallow ?? food?.is_swallow ?? false),
 });
 
 export const Route = createFileRoute("/user-dashboard")({
@@ -114,11 +115,12 @@ function UserDashboard() {
   const userFirstName = user?.fullName?.split(" ")[0] ?? "there";
 
   const filtered = useMemo(() => {
-    return foods.filter(
-      (f) =>
-        (cat === "All" || f.category === cat) &&
-        f.name.toLowerCase().includes(q.toLowerCase())
-    );
+    return foods.filter((f) => {
+      const matchesCategory =
+        cat === "All" ||
+        (cat === "Swallow" ? f.isSwallow : f.category === cat);
+      return matchesCategory && f.name.toLowerCase().includes(q.toLowerCase());
+    });
   }, [foods, cat, q]);
 
   const OrderHistory = () => { navigate({ to: "/orders" }); }
@@ -247,7 +249,7 @@ function UserDashboard() {
       <div className="flex flex-col sm:flex-row gap-3 sm:justify-between mb-6">
 
         <div className="flex flex-wrap gap-2">
-          {["All", "Foods", "Protein"].map((c) => (
+          {["All", "Foods", "Protein", "Swallow"].map((c) => (
             <button
               key={c}
               onClick={() => setCat(c)}
@@ -327,13 +329,22 @@ function FoodCard({ food }) {
       <div className="relative aspect-[4/3] bg-gray-100">
         <img src={food.image} className="w-full h-full object-cover" />
 
-        {/* STATUS */}
-        {food.status && (
-          <span
-            className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}
-          >
-            {food.status}
-          </span>
+        {/* STATUS / SWALLOW */}
+        {(food.status || food.isSwallow) && (
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+            {food.status && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}
+              >
+                {food.status}
+              </span>
+            )}
+            {food.isSwallow && (
+              <span className="rounded-full border border-amber-200 bg-amber-100/95 px-2.5 py-1 text-[11px] font-semibold text-amber-800 shadow-sm">
+                Swallow
+              </span>
+            )}
+          </div>
         )}
 
         {/* CATEGORY */}

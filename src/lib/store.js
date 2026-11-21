@@ -5,11 +5,11 @@ export const HOSTELS = ["MH1", "MH2", "FH1", "FH2", "FH3"];
 const KEY = "dunnkayce_state_v3";
 const F = (name, price, image, description, extra = {}) => ({
     id: "f_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
-    name, price, image, description, category: "Foods", status: "Available", dailyLimit: 10, ...extra,
+    name, price, image, description, category: "Foods", status: "Available", ...extra,
 });
 const P = (name, price, image, description) => ({
     id: "p_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
-    name, price, image, description, category: "Protein", status: "Available", dailyLimit: 3,
+    name, price, image, description, category: "Protein", status: "Available",
 });
 const seedFoods = [
     // FOODS
@@ -145,7 +145,6 @@ export const store = {
                 ...s,
                 users: exists ? s.users.map((u) => u.id === userId ? { ...u, ...normalized } : u) : [...s.users, normalized],
                 currentUserId: userId,
-                cart: [],
             };
         });
     },
@@ -195,37 +194,12 @@ export const store = {
     },
     clearCart() { set((s) => ({ ...s, cart: [] })); },
     // orders
-    // Per-person daily total for a food (today). If userId omitted, uses current user.
-    todayOrderedQty(foodId, userId) {
-        const uid = userId ?? state.currentUserId;
-        if (!uid)
-            return 0;
-        const today = new Date().toDateString();
-        const orders = Array.isArray(state.orders) ? state.orders : [];
-        return orders
-            .filter((o) => o.userId === uid && new Date(o.createdAt).toDateString() === today && o.paymentStatus !== "Failed" && o.paymentStatus !== "Rejected")
-            .flatMap((o) => Array.isArray(o.items) ? o.items : [])
-            .filter((i) => i.foodId === foodId)
-            .reduce((sum, i) => sum + (i.qty ?? 0), 0);
-    },
     createOrder(data) {
         const u = store.currentUser();
         if (!u)
             return { error: "Not logged in" };
         if (state.cart.length === 0)
             return { error: "Cart is empty" };
-        // Validate per-person daily limits
-        for (const c of state.cart) {
-            const food = state.foods.find((f) => f.id === c.foodId);
-            if (!food)
-                return { error: "Food not found" };
-            if (food.status !== "Available")
-                return { error: `${food.name} is ${food.status}` };
-            const ordered = store.todayOrderedQty(food.id, u.id);
-            if (ordered + c.qty > food.dailyLimit) {
-                return { error: `Limit exceeded for ${food.name}. Please come to Dunnkayce physically.` };
-            }
-        }
         const items = state.cart.map((c) => {
             const f = state.foods.find((x) => x.id === c.foodId);
             return { foodId: f.id, name: f.name + (c.soupType ? ` (${c.soupType})` : ""), qty: c.qty, price: f.price, soupType: c.soupType };
