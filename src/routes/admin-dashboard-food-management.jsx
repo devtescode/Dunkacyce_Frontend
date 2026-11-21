@@ -355,6 +355,15 @@ function FoodManagementPage() {
                           <p className="mt-1 font-display text-2xl leading-none text-foreground">
                             ₦{Number(food.price || 0).toLocaleString()}
                           </p>
+                          {food.isSwallow ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {Number(food.swallowQuantity || 0).toLocaleString()} swallow
+                              {Number(food.swallowQuantity || 0) === 1 ? "" : "s"} available
+                              {Array.isArray(food.availableSoups) && food.availableSoups.length > 0
+                                ? ` · ${food.availableSoups.length} soup${food.availableSoups.length === 1 ? "" : "s"}`
+                                : ""}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </article>
@@ -528,13 +537,6 @@ function FoodForm({ initial, onClose, onSaved }) {
     setFieldErrors((p) => (p[key] ? { ...p, [key]: undefined } : p));
   };
 
-  const clearSwallowFields = (prev) => ({
-    ...prev,
-    isSwallow: false,
-    availableSoups: [],
-    swallowQuantity: 0,
-  });
-
   const setCategory = (cat) => {
     setForm((p) => {
       if (cat !== "Foods") {
@@ -616,18 +618,41 @@ function FoodForm({ initial, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.price || (!form.imageUrl && !imageFile)) {
-      setFieldErrors({
-        name: form.name ? undefined : "Food name is required.",
-        price: form.price ? undefined : "Price is required.",
-        image: !form.imageUrl && !imageFile ? "Upload a photo to continue." : undefined,
-      });
-      return toast.error("Name, price and image file are required");
+    const swallowQty = Number(form.swallowQuantity);
+    const isSwallowFood = form.category === "Foods" && form.isSwallow;
+    const nextErrors = {
+      name: form.name ? undefined : "Food name is required.",
+      price: form.price ? undefined : "Price is required.",
+      image: !form.imageUrl && !imageFile ? "Upload a photo to continue." : undefined,
+      swallowQuantity:
+        isSwallowFood &&
+        (form.swallowQuantity === "" ||
+          form.swallowQuantity === null ||
+          form.swallowQuantity === undefined ||
+          !Number.isFinite(swallowQty) ||
+          swallowQty < 0 ||
+          !Number.isInteger(swallowQty))
+          ? "Enter a valid swallow quantity (0 or more)."
+          : undefined,
+      availableSoups:
+        isSwallowFood && (!Array.isArray(form.availableSoups) || form.availableSoups.length === 0)
+          ? "Select or add at least one soup."
+          : undefined,
+    };
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+    if (hasErrors) {
+      setFieldErrors(nextErrors);
+      if (nextErrors.name || nextErrors.price || nextErrors.image) {
+        return toast.error("Name, price and image file are required");
+      }
+      return toast.error("Please complete the swallow details");
     }
 
     setFieldErrors({});
     try {
       setLoading(true);
+      const normalizedAvailableSoups = isSwallowFood ? form.availableSoups : [];
+      const normalizedSwallowQuantity = isSwallowFood ? Number(form.swallowQuantity) : 0;
       let payload;
 
       if (imageFile) {
@@ -638,12 +663,17 @@ function FoodForm({ initial, onClose, onSaved }) {
         formData.append("price", Number(form.price));
         formData.append("category", form.category);
         formData.append("status", form.status);
-        formData.append("isSwallow", form.isSwallow ? "true" : "false");
+        formData.append("isSwallow", isSwallowFood ? "true" : "false");
+        formData.append("availableSoups", JSON.stringify(normalizedAvailableSoups));
+        formData.append("swallowQuantity", String(normalizedSwallowQuantity));
         payload = formData;
       } else {
         payload = {
           ...form,
           price: Number(form.price),
+          isSwallow: isSwallowFood,
+          availableSoups: normalizedAvailableSoups,
+          swallowQuantity: normalizedSwallowQuantity,
         };
       }
 
@@ -850,7 +880,7 @@ function FoodForm({ initial, onClose, onSaved }) {
                     role="switch"
                     aria-checked={form.isSwallow}
                     aria-label="This is a swallow"
-                    onClick={() => set("isSwallow", !form.isSwallow)}
+                    onClick={toggleSwallow}
                     className={cn(
                       "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       form.isSwallow ? "border-primary bg-primary" : "border-input bg-muted",
@@ -864,6 +894,133 @@ function FoodForm({ initial, onClose, onSaved }) {
                     />
                   </button>
                 </div>
+
+                {form.isSwallow && (
+                  <div className="mt-4 space-y-5 border-t border-border/70 pt-4">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Available soups</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Select one or more soups customers can pick with this swallow.
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {SWALLOW_SOUP_OPTIONS.map((soup) => {
+                          const selected = form.availableSoups.some(
+                            (s) => s.toLowerCase() === soup.toLowerCase(),
+                          );
+                          return (
+                            <button
+                              key={soup}
+                              type="button"
+                              onClick={() => toggleSoup(soup)}
+                              aria-pressed={selected}
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none",
+                                selected
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "border-input bg-background text-foreground hover:bg-secondary",
+                              )}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                  selected
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-muted-foreground/40 bg-background",
+                                )}
+                              >
+                                {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                              </span>
+                              <span>{soup}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="custom-soup-input" className="text-sm font-medium text-foreground">
+                        Others
+                      </label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Add a custom soup if it is not listed above.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          id="custom-soup-input"
+                          className={inputClass}
+                          value={customSoupInput}
+                          onChange={(e) => setCustomSoupInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addCustomSoup();
+                            }
+                          }}
+                          placeholder="e.g. Efo riro"
+                          autoComplete="off"
+                        />
+                        <button
+                          type="button"
+                          onClick={addCustomSoup}
+                          className="inline-flex shrink-0 items-center justify-center rounded-xl border border-input bg-background px-4 py-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
+                        >
+                          Add
+                        </button>
+                      </div>
+
+                      {form.availableSoups.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2" aria-label="Selected soups">
+                          {form.availableSoups.map((soup) => (
+                            <span
+                              key={soup.toLowerCase()}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-foreground"
+                            >
+                              {soup}
+                              <button
+                                type="button"
+                                onClick={() => removeSoup(soup)}
+                                className="rounded-full p-0.5 text-muted-foreground transition hover:bg-primary/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={`Remove ${soup}`}
+                              >
+                                <X aria-hidden="true" className="h-3.5 w-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {fieldErrors.availableSoups ? (
+                        <p id="food-available-soups-error" role="alert" className="mt-2 text-xs font-medium text-destructive">
+                          {fieldErrors.availableSoups}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <label className="block">
+                      <span className="text-sm font-medium text-foreground">Available swallow quantity</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className={inputClass}
+                        value={form.swallowQuantity}
+                        onChange={(e) => set("swallowQuantity", e.target.value)}
+                        placeholder="How many swallows are available?"
+                        aria-invalid={Boolean(fieldErrors.swallowQuantity) || undefined}
+                        aria-describedby={fieldErrors.swallowQuantity ? "food-swallow-quantity-error" : undefined}
+                      />
+                      {fieldErrors.swallowQuantity ? (
+                        <p id="food-swallow-quantity-error" role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                          {fieldErrors.swallowQuantity}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          Enter how many portions of this swallow are available.
+                        </p>
+                      )}
+                    </label>
+                  </div>
+                )}
               </div>
             )}
           </div>
