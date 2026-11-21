@@ -48,6 +48,7 @@ const FILTERS = [
   { id: "ready", label: "Ready" },
   { id: "delivered", label: "Delivered" },
 ];
+const ORDERS_PER_PAGE = 3;
 
 const TRACKER_STEPS = [
   { key: "preparing", label: "Preparing", icon: ChefHat },
@@ -114,6 +115,14 @@ function orderPlacedAt(order) {
   );
 }
 
+function allOrdersPriority(order) {
+  const key = statusKey(getDisplayStatus(order));
+  if (key === "preparing") return 0;
+  if (key === "ready" || key === "on-the-way") return 1;
+  if (key === "delivered") return 2;
+  return 3;
+}
+
 function dateTimeAttr(value) {
   const date = toMillis(value) ? new Date(toMillis(value)) : null;
   return date ? date.toISOString() : undefined;
@@ -137,6 +146,17 @@ function OrdersPage() {
   const [user, setUser] = useState(() => getSessionUser());
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleFilterChange = (value) => {
+    setFilter(value);
+    setPage(1);
+  };
 
   const ordersQuery = useUserOrdersQuery(user?.id);
   const orders = ordersQuery.data ?? [];
@@ -150,8 +170,15 @@ function OrdersPage() {
   }, [user, navigate]);
 
   const sortedOrders = useMemo(
-    () => [...orders].sort((a, b) => orderPlacedAt(b) - orderPlacedAt(a)),
-    [orders],
+    () =>
+      [...orders].sort((a, b) => {
+        if (filter === "all") {
+          const priorityDifference = allOrdersPriority(a) - allOrdersPriority(b);
+          if (priorityDifference !== 0) return priorityDifference;
+        }
+        return orderPlacedAt(b) - orderPlacedAt(a);
+      }),
+    [orders, filter],
   );
 
   const activeOrders = useMemo(
@@ -325,6 +352,12 @@ function OrdersPage() {
     });
   }, [sortedOrders, search, filter]);
 
+  const totalPages = Math.max(1, Math.ceil(matchingOrders.length / ORDERS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = matchingOrders.length === 0 ? 0 : (currentPage - 1) * ORDERS_PER_PAGE + 1;
+  const pageEnd = Math.min(currentPage * ORDERS_PER_PAGE, matchingOrders.length);
+  const visibleOrders = matchingOrders.slice(pageStart - 1, pageEnd);
+
   const stats = useMemo(() => {
     const delivered = orders.filter(
       (order) => statusKey(normalizeStatus(order)) === "delivered",
@@ -442,11 +475,12 @@ function OrdersPage() {
 
           <Toolbar
             search={search}
-            onSearchChange={setSearch}
+            onSearchChange={handleSearchChange}
             filter={filter}
-            onFilterChange={setFilter}
-            shown={matchingOrders.length}
-            total={orders.length}
+            onFilterChange={handleFilterChange}
+            pageStart={pageStart}
+            pageEnd={pageEnd}
+            total={matchingOrders.length}
           />
 
           {matchingOrders.length === 0 ? (
@@ -463,6 +497,7 @@ function OrdersPage() {
                 onClick={() => {
                   setSearch("");
                   setFilter("all");
+                  setPage(1);
                 }}
                 className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary motion-reduce:transition-none"
               >
@@ -471,18 +506,45 @@ function OrdersPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {matchingOrders.map((order) => (
+              {visibleOrders.map((order) => (
                 <OrderCard key={order._id ?? order.id} order={order} />
               ))}
             </div>
           )}
+          {matchingOrders.length > ORDERS_PER_PAGE ? (
+            <nav
+              aria-label="Order history pages"
+              className="flex items-center justify-between gap-3 border-t border-border pt-4"
+            >
+              <button
+                type="button"
+                onClick={() => setPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <p className="text-xs font-medium text-muted-foreground" aria-live="polite">
+                Page <span className="tabular-nums text-foreground">{currentPage}</span> of{" "}
+                <span className="tabular-nums text-foreground">{totalPages}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
         </>
       )}
     </main>
   );
 }
 
-function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total }) {
+function Toolbar({ search, onSearchChange, filter, onFilterChange, pageStart, pageEnd, total }) {
   return (
     <section
       aria-label="Order search and filters"
@@ -528,7 +590,7 @@ function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total 
         ))}
       </div>
       <p className="text-xs text-muted-foreground" aria-live="polite" aria-atomic="true">
-        Showing <span className="font-semibold tabular-nums text-foreground">{shown}</span> of{" "}
+        Showing <span className="font-semibold tabular-nums text-foreground">{pageStart}–{pageEnd}</span> of{" "}
         <span className="font-semibold tabular-nums text-foreground">{total}</span> orders
       </p>
     </section>
