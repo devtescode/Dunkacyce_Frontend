@@ -21,6 +21,12 @@
   50% { opacity: 1; transform: scale(1.15); }
 }
 
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
 /* MUST come after imports */
 @source "../src";
 
