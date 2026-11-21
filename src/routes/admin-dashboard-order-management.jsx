@@ -534,8 +534,27 @@ function OrderManagementPage() {
     setSortBy("newest");
   };
 
+  const notifyAlreadyDelivered = (order) => {
+    toast.info("This order has already been delivered", {
+      description: `Order ${getShortOrderId(order)} was handed off and its status is locked.`,
+    });
+    const id = getOrderId(order);
+    if (!id) return;
+    setUnlockedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
   const toggleUnlock = (id) => {
     if (!id) return;
+    const order = orders.find((candidate) => getOrderId(candidate) === id);
+    if (normalizeStatus(order) === "Delivered") {
+      notifyAlreadyDelivered(order);
+      return;
+    }
     setUnlockedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -552,6 +571,10 @@ function OrderManagementPage() {
     if (!orderId || !nextStatus) return;
 
     const currentStatus = normalizeStatus(order);
+    if (currentStatus === "Delivered") {
+      notifyAlreadyDelivered(order);
+      return;
+    }
     const canonicalNextStatus = normalizeStatus({ status: nextStatus });
     // Only skip a true no-op. Every other transition is allowed.
     if (canonicalNextStatus === currentStatus) return;
@@ -686,6 +709,7 @@ function OrderManagementPage() {
             unlockedIds={unlockedIds}
             onToggleUnlock={toggleUnlock}
             onChangeStatus={(order, status) => requestStatusChange(order, status)}
+            onDeliveredAttempt={notifyAlreadyDelivered}
             onOpenDetails={(order) => setSelectedOrder(order)}
           />
         )}

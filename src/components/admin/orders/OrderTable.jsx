@@ -138,59 +138,76 @@ function FulfillmentActions({
   isUpdating,
   onToggleUnlock,
   onChangeStatus,
+  onDeliveredAttempt,
   onOpenDetails,
   className,
 }) {
   const normalizedStatus = normalizeStatus(order);
+  const isDelivered = normalizedStatus === "Delivered";
   const currentStatus = STATUS_OPTIONS.includes(normalizedStatus) ? normalizedStatus : undefined;
   const LockIcon = unlocked ? Unlock : Lock;
   const locked = !unlocked;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <button
-        type="button"
-        onClick={() => invoke(onToggleUnlock, orderId)}
-        disabled={!orderId || isUpdating}
-        aria-pressed={unlocked}
-        aria-label={`${unlocked ? "Lock" : "Unlock"} status control for order ${shortId}`}
-        title={unlocked ? "Lock status control" : "Unlock status control"}
-        className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-          unlocked && "border-primary/30 bg-primary/10 text-primary",
-        )}
-      >
-        <LockIcon aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
-
-      <Select
-        value={currentStatus}
-        onValueChange={(value) => invoke(onChangeStatus, order, value)}
-        disabled={locked || !orderId || isUpdating}
-      >
-        <SelectTrigger
-          aria-label={`Update status for order ${shortId}`}
-          aria-busy={isUpdating}
-          className="h-8 w-[132px] rounded-lg text-xs"
+      {isDelivered ? (
+        <button
+          type="button"
+          onClick={() => invoke(onDeliveredAttempt, order)}
+          aria-label={`Order ${shortId} has already been delivered`}
+          title="This order has already been delivered"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
         >
-          <span className="flex min-w-0 items-center gap-1.5">
-            {isUpdating ? (
-              <Loader2
-                aria-hidden="true"
-                className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
-              />
-            ) : null}
-            <SelectValue />
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <Lock aria-hidden="true" className="h-3.5 w-3.5" />
+          Delivered · locked
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => invoke(onToggleUnlock, orderId)}
+            disabled={!orderId || isUpdating}
+            aria-pressed={unlocked}
+            aria-label={`${unlocked ? "Lock" : "Unlock"} status control for order ${shortId}`}
+            title={unlocked ? "Lock status control" : "Unlock status control"}
+            className={cn(
+              "grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+              unlocked && "border-primary/30 bg-primary/10 text-primary",
+            )}
+          >
+            <LockIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+
+          <Select
+            value={currentStatus}
+            onValueChange={(value) => invoke(onChangeStatus, order, value)}
+            disabled={locked || !orderId || isUpdating}
+          >
+            <SelectTrigger
+              aria-label={`Update status for order ${shortId}`}
+              aria-busy={isUpdating}
+              className="h-8 w-[132px] rounded-lg text-xs"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                {isUpdating ? (
+                  <Loader2
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
+                  />
+                ) : null}
+                <SelectValue />
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
 
       <button
         type="button"
@@ -219,6 +236,7 @@ export function OrderTable({
   unlockedIds,
   onToggleUnlock,
   onChangeStatus,
+  onDeliveredAttempt,
   onOpenDetails,
 }) {
   const safeRows = (Array.isArray(rows) ? rows : []).filter(
@@ -327,6 +345,7 @@ export function OrderTable({
                         isUpdating={isUpdating}
                         onToggleUnlock={onToggleUnlock}
                         onChangeStatus={onChangeStatus}
+                        onDeliveredAttempt={onDeliveredAttempt}
                         onOpenDetails={onOpenDetails}
                       />
                     </td>
@@ -414,6 +433,7 @@ export function OrderTable({
                   isUpdating={isUpdating}
                   onToggleUnlock={onToggleUnlock}
                   onChangeStatus={onChangeStatus}
+                  onDeliveredAttempt={onDeliveredAttempt}
                   onOpenDetails={onOpenDetails}
                   className="w-full"
                 />

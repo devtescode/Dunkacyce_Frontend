@@ -59,8 +59,8 @@ export function getReadyAt(order) {
 }
 
 export function getDeliveredAt(order) {
-  // Only a Delivered order has delivery evidence. A reversal clears deliveredAt
-  // server-side, but guard here too so stale UI never claims a handoff.
+  // Only a Delivered order has delivery evidence. Delivered is terminal on the
+  // server, but guard here too so stale UI never claims a handoff.
   if (normalizeStatus(order) !== "Delivered") return null;
   const deliveredAt = toEpochMs(order?.deliveredAt);
   if (deliveredAt != null) return deliveredAt;
