@@ -262,27 +262,61 @@ export function useUpdateOrderStatusMutation(options = {}) {
         auth: "admin",
       }),
     onSuccess: async (data, variables, context) => {
-      const returnedOrder = data?.order;
+      if (data?.success === false) {
+        throw new Error(data?.message ?? "Failed to update order status");
+      }
+
+      // Tolerate the usual response shapes, but never trust a partial order to
+      // overwrite a fully populated admin-list row.
+      const returnedOrder =
+        data?.order ??
+        data?.updatedOrder ??
+        (data?._id != null || data?.id != null ? data : null);
+      const trackingFields = [
+        "status",
+        "readyAt",
+        "deliveredAt",
+        "etaMinutes",
+        "updatedAt",
+      ];
+      const trackingPatch = {};
+      for (const field of trackingFields) {
+        if (returnedOrder?.[field] !== undefined) {
+          trackingPatch[field] = returnedOrder[field];
+        }
+      }
+      if (trackingPatch.status === undefined) {
+        trackingPatch.status = variables.status;
+      }
+
       queryClient.setQueryData(queryKeys.admin.orders(), (orders = []) => {
         if (!Array.isArray(orders)) return orders;
         const matches = (order) => {
           if (order?._id != null && order._id === variables.id) return true;
           if (order?.id != null && order.id === variables.id) return true;
           if (!returnedOrder) return false;
-          if (order?._id != null && returnedOrder._id != null && order._id === returnedOrder._id) {
+          if (
+            order?._id != null &&
+            returnedOrder._id != null &&
+            order._id === returnedOrder._id
+          ) {
             return true;
           }
-          return order?.id != null && returnedOrder.id != null && order.id === returnedOrder.id;
+          return (
+            order?.id != null &&
+            returnedOrder.id != null &&
+            order.id === returnedOrder.id
+          );
         };
-        return orders.map((order) => {
-          if (!matches(order)) return order;
-          return returnedOrder
-            ? { ...order, ...returnedOrder }
-            : { ...order, status: variables.status };
-        });
+        return orders.map((order) =>
+          matches(order) ? { ...order, ...trackingPatch } : order,
+        );
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.admin.orders() }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.admin.orders(),
+          refetchType: "none",
+        }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.admin.dashboardStats(),
         }),

@@ -891,11 +891,13 @@ function SuperAdminPage() {
                   : "Deactivate this admin?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction?.type === "delete"
-                ? `${accountName(pendingAction.account)} will be permanently removed and immediately signed out. This cannot be undone.`
-                : pendingAction?.type === "block"
-                  ? `${accountName(pendingAction.account)} will be immediately signed out and blocked from signing in until you unblock them.`
-                  : `${accountName(pendingAction.account)} will be immediately signed out and will not be able to sign in until reactivated.`}
+              {!pendingAction
+                ? null
+                : pendingAction.type === "delete"
+                  ? `${accountName(pendingAction.account)} will be permanently removed and immediately signed out. This cannot be undone.`
+                  : pendingAction.type === "block"
+                    ? `${accountName(pendingAction.account)} will be immediately signed out and blocked from signing in until you unblock them.`
+                    : `${accountName(pendingAction.account)} will be immediately signed out and will not be able to sign in until reactivated.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

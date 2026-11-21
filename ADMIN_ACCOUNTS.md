@@ -81,7 +81,7 @@ The page shows statuses Active / Inactive / Blocked, stats Total / Active / Inac
 7. `/api/superadmin/activate` with missing key env → **503**; with empty `activationKey` → **400**; with a wrong key → **403**.
 8. Successful activation → `200`, response `admin.role: "superadmin"`, `canManageAdmins` true via `/api/superadmin/me`.
 9. A second activation attempt → **409** (unique partial index / atomic guard).
-10. The activating admin's old token now returns **401 "Session revoked"**; frontend re-persists the returned role, or logging out/in restores access with the new role.
+10. Activation deliberately does **not** bump `tokenVersion`, so the activating admin's current token stays valid; the frontend re-persists the returned `superadmin` role immediately (a logout/login also refreshes it).
 11. Creating an admin with a body that includes `role: "superadmin"` still stores `role: "admin"`.
 12. `GET /api/superadmin/admins` honours `search`, `status`, `page`, `limit` and returns `admins`, `stats` and `pagination`; no password/hash in any row.
 13. Deactivate a regular admin → status `inactive`; their next authenticated request is **401** and the frontend signs them out.

@@ -92,8 +92,9 @@ function RootComponent() {
   const hideFooter = isAdmin || (isLoggedIn && isAuthAppRoute);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col">
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
         {!isAdmin && <Navbar />}
 
           <div className="flex-1">
@@ -113,7 +114,8 @@ function RootComponent() {
           {!hideFooter && <Footer />}
         </div>
 
-      <Toaster richColors position="top-center" />
-    </QueryClientProvider>
+      <ThemedToaster />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

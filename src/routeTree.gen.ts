@@ -14,6 +14,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as OrderRouteImport } from './routes/order'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
@@ -58,6 +59,11 @@ const PaymentsRoute = PaymentsRouteImport.update({
 const OrdersRoute = OrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderRoute = OrderRouteImport.update({
+  id: '/order',
+  path: '/order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/order': typeof OrderRoute
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/order': typeof OrderRoute
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/change-password': typeof ChangePasswordRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/order': typeof OrderRoute
   '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
@@ -276,6 +285,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/checkout'
     | '/login'
+    | '/order'
     | '/orders'
     | '/payments'
     | '/profile'
@@ -303,6 +313,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/checkout'
     | '/login'
+    | '/order'
     | '/orders'
     | '/payments'
     | '/profile'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/checkout'
     | '/login'
+    | '/order'
     | '/orders'
     | '/payments'
     | '/profile'
@@ -358,6 +370,7 @@ export interface RootRouteChildren {
   ChangePasswordRoute: typeof ChangePasswordRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
+  OrderRoute: typeof OrderRoute
   OrdersRoute: typeof OrdersRoute
   PaymentsRoute: typeof PaymentsRoute
   ProfileRoute: typeof ProfileRoute
@@ -400,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: '/orders'
       fullPath: '/orders'
       preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order': {
+      id: '/order'
+      path: '/order'
+      fullPath: '/order'
+      preLoaderRoute: typeof OrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -566,6 +586,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChangePasswordRoute: ChangePasswordRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
+  OrderRoute: OrderRoute,
   OrdersRoute: OrdersRoute,
   PaymentsRoute: PaymentsRoute,
   ProfileRoute: ProfileRoute,

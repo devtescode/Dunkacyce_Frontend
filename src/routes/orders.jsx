@@ -2,21 +2,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  BellRing,
   Bike,
-  CalendarClock,
   CheckCircle2,
   ChefHat,
+  ChevronRight,
   Clock3,
   MapPin,
-  Package,
   PackageCheck,
-  ReceiptText,
   RotateCcw,
   Search,
   ShoppingBag,
   UtensilsCrossed,
-  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getSessionUser } from "@/lib/session";
@@ -113,6 +109,13 @@ function dateTimeAttr(value) {
 function isPaid(paymentStatus) {
   const value = String(paymentStatus ?? "").toLowerCase();
   return value === "paid" || value.includes("success") || value.includes("completed");
+}
+
+/** Shared screen-reader sentence for live ETA updates, including the final minute. */
+function etaRemainingSentence(countdown) {
+  if (countdown.isExpired) return "Arrival estimate elapsed. We are checking with the kitchen.";
+  if (countdown.minutes < 1) return "Under a minute remaining.";
+  return `About ${countdown.minutes} ${countdown.minutes === 1 ? "minute" : "minutes"} remaining.`;
 }
 
 function OrdersPage() {
@@ -302,67 +305,57 @@ function OrdersPage() {
   if (!user) return null;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-forest-deep via-forest to-fresh/80 p-6 text-white shadow-xl shadow-forest/20 sm:p-8">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-gold/20 blur-3xl" />
-          <div className="absolute -bottom-28 left-1/4 h-64 w-64 rounded-full bg-fresh/25 blur-3xl" />
+    <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            My orders
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Follow every step from the kitchen to your hostel.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => ordersQuery.refetch()}
+          disabled={ordersQuery.isFetching}
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60 motion-reduce:transition-none"
+        >
+          <RotateCcw
+            aria-hidden="true"
+            className={cn(
+              "h-3.5 w-3.5",
+              ordersQuery.isFetching &&
+                "animate-[dk-spin_1s_linear_infinite] motion-reduce:animate-none",
+            )}
+          />
+          {ordersQuery.isFetching ? "Refreshing" : "Refresh"}
+        </button>
+      </header>
 
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-gold">
-              Live order tracking
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-              Your orders, on the move.
-            </h1>
-            <p className="mt-3 text-sm text-white/80 sm:text-base">
-              Follow every step from the kitchen to your hostel.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => ordersQuery.refetch()}
-            disabled={ordersQuery.isFetching}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-2xl border border-white/25 bg-white/10 px-5 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/20 disabled:opacity-60 motion-reduce:transition-none"
-          >
-            <RotateCcw
-              aria-hidden="true"
-              className={cn(
-                "h-4 w-4",
-                ordersQuery.isFetching &&
-                  "animate-[dk-spin_1s_linear_infinite] motion-reduce:animate-none",
-              )}
-            />
-            {ordersQuery.isFetching ? "Refreshing" : "Refresh"}
-          </button>
-        </div>
-
-        <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
-          <StatTile
-            icon={BellRing}
-            label="Active orders"
-            value={stats.active}
-            hint="On the move right now"
-          />
-          <StatTile
-            icon={CheckCircle2}
-            label="Delivered"
-            value={stats.delivered}
-            hint="Happily received"
-          />
-          <StatTile
-            icon={ReceiptText}
-            label="Total spent"
-            value={formatNGN(stats.spent)}
-            hint="Across successful payments"
-          />
-        </div>
-      </section>
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-xs text-muted-foreground">
+        <p>
+          Active orders{" "}
+          <span className="ml-1 text-lg font-semibold tabular-nums text-foreground">
+            {stats.active}
+          </span>
+        </p>
+        <p>
+          Delivered{" "}
+          <span className="ml-1 text-lg font-semibold tabular-nums text-foreground">
+            {stats.delivered}
+          </span>
+        </p>
+        <p>
+          Total spent{" "}
+          <span className="ml-1 text-lg font-semibold tabular-nums text-foreground">
+            {formatNGN(stats.spent)}
+          </span>
+        </p>
+      </div>
 
       {ordersQuery.isPending ? (
-        <div className="rounded-[2rem] border border-border bg-card p-8">
+        <div className="rounded-xl border border-border bg-card p-6">
           <DunnkayceLoader
             variant="compact"
             label="Loading your orders"
@@ -370,32 +363,32 @@ function OrdersPage() {
           />
         </div>
       ) : ordersQuery.isError ? (
-        <div className="rounded-[2rem] border border-destructive/20 bg-destructive/5 p-8 text-center">
-          <p className="text-lg font-black tracking-tight">Could not load orders</p>
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center">
+          <h2 className="text-lg font-semibold tracking-tight">Could not load orders</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             We couldn&apos;t reach the kitchen just now. Please try again.
           </p>
           <button
             type="button"
             onClick={() => ordersQuery.refetch()}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 motion-reduce:transition-none"
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 motion-reduce:transition-none"
           >
             <RotateCcw aria-hidden="true" className="h-4 w-4" />
             Retry
           </button>
         </div>
       ) : orders.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-border bg-card px-6 py-16 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">
-            <UtensilsCrossed aria-hidden="true" className="h-10 w-10" />
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-primary">
+            <UtensilsCrossed aria-hidden="true" className="h-7 w-7" />
           </div>
-          <h2 className="mt-6 text-3xl font-black tracking-tight">No orders yet</h2>
+          <h2 className="mt-4 text-xl font-semibold tracking-tight">No orders yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Once you place an order, you can follow it right here.
           </p>
           <Link
             to="/user-dashboard"
-            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 motion-reduce:transition-none"
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 motion-reduce:transition-none"
           >
             <ShoppingBag aria-hidden="true" className="h-4 w-4" />
             Browse Menu
@@ -424,11 +417,11 @@ function OrdersPage() {
           />
 
           {matchingOrders.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card px-6 py-14 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary text-primary">
-                <Search aria-hidden="true" className="h-7 w-7" />
+            <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-secondary text-primary">
+                <Search aria-hidden="true" className="h-5 w-5" />
               </div>
-              <h2 className="mt-5 text-2xl font-black tracking-tight">No matching orders</h2>
+              <h2 className="mt-4 text-lg font-semibold tracking-tight">No matching orders</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Try a different search or clear the status filter.
               </p>
@@ -438,13 +431,13 @@ function OrdersPage() {
                   setSearch("");
                   setFilter("all");
                 }}
-                className="mt-5 rounded-2xl border border-border bg-card px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-secondary motion-reduce:transition-none"
+                className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary motion-reduce:transition-none"
               >
                 Clear filters
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {matchingOrders.map((order) => (
                 <OrderCard key={order._id ?? order.id} order={order} />
               ))}
@@ -456,71 +449,54 @@ function OrdersPage() {
   );
 }
 
-function StatTile({ icon: Icon, label, value, hint }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-forest-deep/80 p-4 backdrop-blur-sm dark:bg-black/40">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-gold">
-        <Icon aria-hidden="true" className="h-5 w-5" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/90">{label}</p>
-        <p className="mt-0.5 text-xl font-black tracking-tight tabular-nums text-white">{value}</p>
-        {hint ? <p className="text-[11px] text-white/80">{hint}</p> : null}
-      </div>
-    </div>
-  );
-}
-
 function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total }) {
   return (
     <section
       aria-label="Order search and filters"
-      className="rounded-[2rem] border border-border bg-card p-4 shadow-sm sm:p-5"
+      className="flex flex-wrap items-center gap-3"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full lg:max-w-sm">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <label htmlFor="order-search" className="sr-only">
-            Search orders
-          </label>
-          <input
-            id="order-search"
-            type="search"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search ID, hostel, room or meal"
-            className="h-11 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          />
-        </div>
-        <div
-          role="group"
-          aria-label="Filter orders by status"
-          className="flex flex-wrap items-center gap-2"
-        >
-          {FILTERS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={filter === option.id}
-              onClick={() => onFilterChange(option.id)}
-              className={cn(
-                "rounded-full px-4 py-2 text-xs font-bold transition motion-reduce:transition-none",
-                filter === option.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "border border-border bg-background text-muted-foreground hover:bg-secondary hover:text-foreground",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div className="relative w-full sm:max-w-xs">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        />
+        <label htmlFor="order-search" className="sr-only">
+          Search orders
+        </label>
+        <input
+          id="order-search"
+          type="search"
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Search ID, hostel, room or meal"
+          className="min-h-11 w-full rounded-lg border border-input bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        />
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Showing <span className="font-black tabular-nums text-foreground">{shown}</span> of{" "}
-        <span className="font-bold tabular-nums text-foreground">{total}</span> orders
+      <div
+        role="group"
+        aria-label="Filter orders by status"
+        className="flex flex-wrap items-center gap-2"
+      >
+        {FILTERS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={filter === option.id}
+            onClick={() => onFilterChange(option.id)}
+            className={cn(
+              "inline-flex min-h-11 items-center justify-center rounded-full px-3 py-1.5 text-[11px] font-semibold transition motion-reduce:transition-none",
+              filter === option.id
+                ? "bg-primary text-primary-foreground"
+                : "border border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground" aria-live="polite" aria-atomic="true">
+        Showing <span className="font-semibold tabular-nums text-foreground">{shown}</span> of{" "}
+        <span className="font-semibold tabular-nums text-foreground">{total}</span> orders
       </p>
     </section>
   );
@@ -540,137 +516,88 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
     : 0;
   const hostel = order.hostel || "your hostel";
   const room = order.room || "—";
+  const statusText = isReady
+    ? isOnTheWay
+      ? "On the way to you"
+      : key === "ready" && countdown.isExpired
+        ? "Ready — arrival estimate elapsed"
+        : "Ready for handoff"
+    : "Preparing";
 
   return (
-    <section
-      aria-label="Live order status"
-      className="relative overflow-hidden rounded-[2rem] border border-fresh/25 bg-gradient-to-br from-card via-card to-secondary p-6 shadow-lg shadow-forest/5 sm:p-8"
-    >
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div
-            className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl",
-              isReady
-                ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
-                : "bg-gold/20 text-forest dark:text-gold",
-            )}
-          >
-            {isReady ? (
-              <Bike aria-hidden="true" className="h-7 w-7" />
-            ) : (
-              <BellRing aria-hidden="true" className="h-7 w-7" />
-            )}
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-primary">Right now</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
-              {isReady
-                ? isOnTheWay
-                  ? "On the way to you"
-                  : key === "ready" && countdown.isExpired
-                    ? "Ready — arrival estimate elapsed"
-                    : "Ready for handoff"
-                : "Preparing"}
+    <section aria-label="Live order status" className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="min-w-0 break-words text-sm font-semibold text-foreground">
+              {statusText}
             </h2>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin aria-hidden="true" className="h-4 w-4 text-primary" />
-              {hostel} · Room {room}
-            </p>
+            <span className="text-[11px] text-muted-foreground">#{shortId(order)}</span>
           </div>
-        </div>
-        <div className="rounded-2xl border border-border bg-card/70 px-4 py-3 lg:text-right">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            Tracking order
+          <p className="mt-0.5 min-w-0 break-words text-xs text-muted-foreground">
+            <MapPin aria-hidden="true" className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+            {hostel} · Room {room}
           </p>
-          <p className="font-black tabular-nums text-foreground">#{shortId(order)}</p>
+        </div>
+        <div className="sm:text-right">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            {isReady ? "Arrival countdown" : "Estimated arrival"}
+          </p>
+          <p
+            aria-hidden="true"
+            className="text-xl font-semibold tabular-nums text-foreground sm:text-2xl"
+          >
+            {!isReady
+              ? "Preparing"
+              : !hasDeadline
+                ? "Estimating"
+                : countdown.isExpired
+                  ? "ETA elapsed"
+                  : countdown.label}
+          </p>
         </div>
       </div>
 
-      <div className="mt-8">
-        <StatusTracker status={status} onTheWay={isOnTheWay} />
-      </div>
-
-      <p className="sr-only" aria-live="polite">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {!isReady
           ? "Your order is being prepared."
           : !hasDeadline
             ? "Your order is ready. Arrival time is being confirmed."
-            : countdown.isExpired
-              ? "Arrival estimate elapsed. We are checking with the kitchen."
-              : `Your order is ready. About ${countdown.minutes} minutes remaining.`}
+            : `Your order is ready. ${etaRemainingSentence(countdown)}`}
       </p>
 
-      <div className="mt-8 rounded-[1.5rem] border border-border bg-card p-5 sm:p-6">
-        {isReady ? (
-          <>
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">
-                  Arrival countdown
-                </p>
-                <p
-                  aria-hidden="true"
-                  className="mt-2 text-4xl font-black tracking-tight tabular-nums text-foreground sm:text-6xl"
-                >
-                  {!hasDeadline
-                    ? "Estimating"
-                    : countdown.isExpired
-                      ? "ETA elapsed"
-                      : countdown.label}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {!hasDeadline
-                    ? "Your arrival estimate is being confirmed — stay close."
-                    : countdown.isExpired
-                      ? "The estimated window has passed. We’re checking with the kitchen and will update you shortly."
-                      : `until your order reaches ${hostel} · Room ${room}`}
-                </p>
-              </div>
-              <div className="sm:max-w-xs sm:text-right">
-                <p className="text-sm font-black tracking-tight text-foreground">
-                  Keep your phone close — we&apos;ll update you as soon as it&apos;s delivered.
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Estimated arrival window: about {etaMinutes} minutes from when your order was
-                  marked ready.
-                </p>
-              </div>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Delivery progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(progress)}
-              aria-valuetext={`${Math.round(progress)}% of the estimated arrival window elapsed`}
-              className="mt-6 h-2.5 w-full overflow-hidden rounded-full bg-secondary"
-            >
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-fresh via-primary to-gold transition-[width] duration-700 ease-out motion-reduce:transition-none"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-soft text-forest dark:text-gold">
-              <Clock3
-                aria-hidden="true"
-                className="h-6 w-6 animate-[dk-pulse-soft_2s_ease-in-out_infinite] motion-reduce:animate-none"
-              />
-            </div>
-            <div>
-              <p className="text-base font-black tracking-tight sm:text-lg">
-                The kitchen is preparing your meal.
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Your {DEFAULT_ETA_MINUTES}-minute arrival countdown starts the moment it&apos;s
-                marked Ready.
-              </p>
-            </div>
-          </div>
-        )}
+      <div
+        role="progressbar"
+        aria-label="Delivery progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress)}
+        aria-valuetext={
+          !isReady
+            ? "Preparing. Estimated arrival countdown starts when the order is marked ready."
+            : !hasDeadline
+              ? "Ready. Arrival time is being confirmed."
+              : etaRemainingSentence(countdown)
+        }
+        className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out motion-reduce:transition-none"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {!isReady
+          ? `Your ${DEFAULT_ETA_MINUTES}-minute countdown starts when it’s marked ready.`
+          : !hasDeadline
+            ? "Arrival time is being confirmed — stay close."
+            : countdown.isExpired
+              ? "We’re checking with the kitchen and will update you shortly."
+              : `About ${etaMinutes} minutes from when your order was marked ready.`}
+      </p>
+
+      <div className="mt-3">
+        <StatusTracker status={status} onTheWay={isOnTheWay} compact />
       </div>
     </section>
   );
@@ -681,31 +608,23 @@ function DeliveredBanner({ order }) {
   return (
     <section
       aria-label="Delivery confirmation"
-      className="flex flex-col gap-4 rounded-[2rem] border border-success/25 bg-gradient-to-br from-secondary via-card to-card p-6 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border bg-card px-4 py-3"
     >
-      <div className="flex items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-success/15 text-success">
-          <CheckCircle2 aria-hidden="true" className="h-6 w-6" />
-        </span>
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-success">
-            All caught up
-          </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight">
-            Your last order was delivered.
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            #{shortId(order)} · {order.hostel || "Hostel"} · Room {order.room || "—"}
-          </p>
-        </div>
+      <div className="min-w-0 text-sm">
+        <h2 className="break-words font-semibold text-foreground">
+          Last order delivered <span className="text-muted-foreground">#{shortId(order)}</span>
+        </h2>
+        <p className="mt-0.5 min-w-0 break-words text-xs text-muted-foreground">
+          {order.hostel || "Hostel"} · Room {order.room || "—"}
+        </p>
       </div>
-      <p className="flex items-center gap-2 text-sm font-bold text-foreground">
-        <CalendarClock aria-hidden="true" className="h-4 w-4 text-primary" />
+      <p className="min-w-0 break-words text-xs text-muted-foreground">
         {deliveredAt == null ? (
           "Delivery time not recorded"
         ) : (
           <>
-            Delivered on <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+            Delivered on{" "}
+            <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
           </>
         )}
       </p>
@@ -719,7 +638,7 @@ function StatusPill({ status }) {
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
   const tones = {
-    delivered: "bg-success/10 text-success ring-success/25 dark:text-fresh",
+    delivered: "bg-success/10 text-emerald-800 ring-success/25 dark:text-fresh",
     ready: "bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:text-sky-300",
     "on-the-way": "bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:text-sky-300",
     preparing: "bg-warning/15 text-amber-800 ring-warning/30 dark:text-gold",
@@ -729,7 +648,7 @@ function StatusPill({ status }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ring-1",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1",
         tones[key] ?? "bg-muted text-muted-foreground ring-border",
       )}
     >
@@ -770,37 +689,37 @@ function StatusTracker({ status, compact = false, onTheWay = false }) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  "h-1 flex-1 rounded-full",
+                  "h-0.5 flex-1 rounded-full",
                   index > 0 && (complete || key === "delivered") ? "bg-fresh" : "bg-border",
                 )}
               />
               <span
                 aria-hidden="true"
                 className={cn(
-                  "relative z-10 flex shrink-0 items-center justify-center rounded-full ring-4 ring-card",
-                  compact ? "h-8 w-8" : "h-9 w-9",
+                  "flex shrink-0 items-center justify-center rounded-full",
+                  compact ? "h-6 w-6" : "h-8 w-8",
                   complete
                     ? "bg-success text-success-foreground"
                     : current
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5" />
               </span>
               <span
                 aria-hidden="true"
                 className={cn(
-                  "h-1 flex-1 rounded-full",
+                  "h-0.5 flex-1 rounded-full",
                   complete && index < TRACKER_STEPS.length - 1 ? "bg-fresh" : "bg-border",
                 )}
               />
             </div>
             <span
               className={cn(
-                "mt-2 break-words text-center text-[9px] font-bold leading-tight uppercase tracking-wide sm:text-xs",
+                "mt-1.5 break-words text-center text-[10px] font-semibold uppercase leading-tight tracking-wide sm:text-xs",
                 complete
-                  ? "text-success dark:text-fresh"
+                  ? "text-emerald-800 dark:text-fresh"
                   : current
                     ? "text-foreground"
                     : "text-muted-foreground",
@@ -826,102 +745,90 @@ function OrderCard({ order }) {
   const items = Array.isArray(order.items) ? order.items : [];
 
   return (
-    <article className="rounded-[2rem] border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-forest/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-primary">
-            <ReceiptText aria-hidden="true" className="h-5 w-5" />
+    <article className="rounded-xl border border-border bg-card p-4">
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground">#{shortId(order)}</h2>
+            <StatusPill status={status} />
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+                paid
+                  ? "bg-success/10 text-emerald-800 ring-success/25 dark:text-fresh"
+                  : "bg-warning/15 text-amber-800 ring-warning/30 dark:text-gold",
+              )}
+            >
+              {String(order.paymentStatus || "Unconfirmed")}
+            </span>
           </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-black tracking-tight">#{shortId(order)}</h2>
-              <StatusPill status={status} />
-              <span
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] font-bold ring-1",
-                  paid
-                    ? "bg-success/10 text-success ring-success/25 dark:text-fresh"
-                    : "bg-warning/15 text-amber-800 ring-warning/30 dark:text-gold",
-                )}
-              >
-                {String(order.paymentStatus || "Unconfirmed")}
-              </span>
-            </div>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin aria-hidden="true" className="h-4 w-4 shrink-0" />
-              {order.hostel || "Hostel"} · Room {order.room || "—"}
-            </p>
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock3 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              Placed <time dateTime={dateTimeAttr(placedAt)}>{formatOrderDateTime(placedAt)}</time>
-            </p>
-          </div>
+          <p className="mt-1.5 min-w-0 break-words text-xs text-muted-foreground">
+            <MapPin aria-hidden="true" className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+            {order.hostel || "Hostel"} · Room {order.room || "—"}
+          </p>
+          <p className="mt-1 min-w-0 break-words text-xs text-muted-foreground">
+            <Clock3 aria-hidden="true" className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+            Placed <time dateTime={dateTimeAttr(placedAt)}>{formatOrderDateTime(placedAt)}</time>
+          </p>
         </div>
         <div className="sm:text-right">
-          <p className="text-2xl font-black tracking-tight tabular-nums text-primary">
+          <p className="text-lg font-semibold tabular-nums text-primary">
             {formatNGN(Number(order.total || 0))}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
             {items.reduce((count, item) => count + Number(item.qty || 0), 0)} items
           </p>
         </div>
       </header>
 
-      <div className="mt-6 rounded-2xl border border-border bg-background/60 p-4">
-        <StatusTracker status={status} compact />
-      </div>
-
-      <div className="mt-5 space-y-3 border-t border-border pt-5">
-        {items.map((item, index) => (
-          <div
-            key={`${order._id ?? order.id}-item-${index}`}
-            className="flex items-start justify-between gap-4 text-sm"
-          >
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                <Package aria-hidden="true" className="h-4 w-4" />
-              </span>
-              <span className="text-muted-foreground">
-                <span className="font-bold text-foreground">
+      {items.length > 0 ? (
+        <ul className="mt-3 space-y-1 border-t border-border pt-3">
+          {items.map((item, index) => (
+            <li key={`${order._id ?? order.id}-item-${index}`} className="flex items-start justify-between gap-3 text-sm">
+              <span className="min-w-0 text-muted-foreground">
+                <span className="font-semibold text-foreground">
                   {Number(item.qty || 1)}× {item.name || "Meal"}
                 </span>
                 {item.soupType ? <span> ({item.soupType})</span> : null}
               </span>
-            </div>
-            <span className="shrink-0 font-bold tabular-nums">
-              {formatNGN(Number(item.price || 0) * Number(item.qty || 1))}
-            </span>
-          </div>
-        ))}
-      </div>
+              <span className="shrink-0 font-semibold tabular-nums text-foreground">
+                {formatNGN(Number(item.price || 0) * Number(item.qty || 1))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <p>
+      <footer className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+        <p className="min-w-0 break-words">
           {paid ? "Paid via" : "Payment method"}{" "}
-          <span className="font-bold text-foreground">{order.paymentMethod || "—"}</span>
-          {order.reference ? <span className="ml-2">· Ref {order.reference}</span> : null}
+          <span className="font-semibold text-foreground">{order.paymentMethod || "—"}</span>
+          {order.reference ? (
+            <span className="ml-2 break-all">· Ref {order.reference}</span>
+          ) : null}
         </p>
         <Link
           to="/payments"
-          className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+          aria-label={`Receipt for order #${shortId(order)}`}
+          className="inline-flex min-h-11 items-center gap-1 font-semibold text-primary hover:underline"
         >
           Receipt
           <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
         </Link>
-      </div>
+      </footer>
 
       {key === "delivered" ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-success/10 px-4 py-3 text-sm font-bold text-success dark:text-fresh">
-          <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+        <p className="mt-2 flex min-w-0 items-center gap-1.5 break-words text-xs font-medium text-success dark:text-fresh">
+          <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
           {deliveredAt == null ? (
             <span>Delivery time not recorded</span>
           ) : (
-            <span>
+            <span className="min-w-0 break-words">
               Delivered on{" "}
               <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
             </span>
           )}
-        </div>
+        </p>
       ) : key === "ready" || key === "on-the-way" ? (
         <ReadyEta order={order} etaMinutes={etaMinutes} readyAt={readyAt} />
       ) : null}
@@ -935,23 +842,23 @@ function ReadyEta({ order, etaMinutes, readyAt }) {
   const countdown = useCountdown(deadline);
 
   return (
-    <div className="mt-4 rounded-2xl bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-800 dark:text-sky-300">
-      <div className="flex flex-wrap items-center gap-2">
-        <Bike aria-hidden="true" className="h-4 w-4" />
-        <span>
-          Ready at <time dateTime={dateTimeAttr(readyAt)}>{formatOrderDateTime(readyAt)}</time>
-        </span>
-        <span aria-hidden="true" className="tabular-nums">
-          {deadline == null
-            ? `· arriving in ~${etaMinutes} min`
-            : countdown.isExpired
-              ? "· arrival estimate elapsed — we’re checking"
-              : `· arriving in ${countdown.label}`}
-        </span>
-      </div>
-      <p className="mt-1 text-xs font-medium text-muted-foreground">
-        Estimated arrival window: about {etaMinutes} minutes from when your order was marked ready.
-      </p>
-    </div>
+    <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-xs text-muted-foreground">
+      <Bike aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary" />
+      <span className="min-w-0 break-words">
+        Ready at <time dateTime={dateTimeAttr(readyAt)}>{formatOrderDateTime(readyAt)}</time>
+      </span>
+      <span aria-hidden="true" className="break-words tabular-nums">
+        {deadline == null
+          ? `· arriving in ~${etaMinutes} min`
+          : countdown.isExpired
+            ? "· arrival estimate elapsed — we’re checking"
+            : `· arriving in ${countdown.label}`}
+      </span>
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {`Order #${shortId(order)} is ready. ${
+          deadline == null ? "Arrival time is being confirmed." : etaRemainingSentence(countdown)
+        }`}
+      </span>
+    </p>
   );
 }

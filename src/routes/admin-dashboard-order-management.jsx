@@ -71,6 +71,7 @@ import {
   getDeliveredAt,
   getEtaDeadline,
   getReadyAt,
+  normalizeStatus,
 } from "@/lib/orderTracking";
 import { getAdminSocket } from "@/lib/socket";
 import { formatNGN } from "@/lib/store";
@@ -242,7 +243,7 @@ function OrderDetailsSheet({ order }) {
   const deliveredAt = getDeliveredAt(order);
   const readyAt = getReadyAt(order);
   const etaDeadline = getEtaDeadline(order);
-  const status = order?.status || "Preparing";
+  const status = normalizeStatus(order);
 
   return (
     <Sheet>
@@ -259,7 +260,7 @@ function OrderDetailsSheet({ order }) {
         <SheetHeader className="space-y-3 pr-8 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <PaymentBadge order={order} />
-            <StatusBadge status={order?.status || "Unknown"} />
+            <StatusBadge status={status} />
           </div>
           <SheetTitle className="font-display text-2xl tracking-tight">
             Order {getShortOrderId(order)}
@@ -390,7 +391,12 @@ function FulfillmentControl({
   isUnlocked,
   onToggleUnlock,
 }) {
-  const currentStatus = order?.status || "Preparing";
+  const currentStatus = normalizeStatus(order);
+  // Radix skips onValueChange when the chosen value equals the controlled `value`.
+  // A canonical status that is not a Select option must map to the empty-string
+  // placeholder, never to a lookalike option (e.g. "Preparing"), otherwise the
+  // change is silently swallowed.
+  const selectValue = STATUS_OPTIONS.includes(currentStatus) ? currentStatus : "";
   const shortId = getShortOrderId(order);
   const orderId = getOrderId(order);
   const UnlockIcon = isUnlocked ? LockOpen : Lock;
@@ -428,7 +434,7 @@ function FulfillmentControl({
 
       {isUnlocked ? (
         <Select
-          value={STATUS_OPTIONS.includes(currentStatus) ? currentStatus : "Preparing"}
+          value={selectValue}
           onValueChange={(value) => onRequestStatusChange(order, value)}
           disabled={isUpdating || !orderId}
         >
@@ -476,7 +482,7 @@ function OrderCard({
   const items = getItems(order);
   const visibleItems = items.slice(0, 3);
   const remainingCount = Math.max(items.length - visibleItems.length, 0);
-  const status = order?.status || "Preparing";
+  const status = normalizeStatus(order);
   const deliveredAt = getDeliveredAt(order);
   const readyAt = getReadyAt(order);
 
@@ -655,16 +661,16 @@ function OrderManagementPage() {
 
   const stats = useMemo(() => {
     const revenue = orders.reduce((sum, order) => sum + (Number(order?.total) || 0), 0);
-    const preparing = orders.filter((order) => order?.status === "Preparing").length;
-    const ready = orders.filter((order) => order?.status === "Ready").length;
-    const delivered = orders.filter((order) => order?.status === "Delivered").length;
+    const preparing = orders.filter((order) => normalizeStatus(order) === "Preparing").length;
+    const ready = orders.filter((order) => normalizeStatus(order) === "Ready").length;
+    const delivered = orders.filter((order) => normalizeStatus(order) === "Delivered").length;
     const paidStudentIds = new Set();
     const studentsToDeliverIds = new Set();
     orders.forEach((order) => {
       const studentKey = getStudentKey(order);
       if (!studentKey) return;
       paidStudentIds.add(studentKey);
-      if (order?.status !== "Delivered") {
+      if (normalizeStatus(order) !== "Delivered") {
         studentsToDeliverIds.add(studentKey);
       }
     });
@@ -682,7 +688,7 @@ function OrderManagementPage() {
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     const filtered = orders.filter((order) => {
-      const status = String(order?.status || "");
+      const status = normalizeStatus(order);
       if (statusFilter !== "all" && status !== statusFilter) return false;
 
       if (!query) return true;
@@ -748,12 +754,16 @@ function OrderManagementPage() {
 
   const requestStatusChange = (order, nextStatus) => {
     const orderId = getOrderId(order);
-    const currentStatus = order?.status || "Preparing";
-    if (!orderId || !nextStatus || nextStatus === currentStatus) return;
+    if (!orderId || !nextStatus) return;
+
+    const currentStatus = normalizeStatus(order);
+    const canonicalNextStatus = normalizeStatus({ status: nextStatus });
+    // Only skip a true no-op. Every other transition is allowed.
+    if (canonicalNextStatus === currentStatus) return;
 
     setPendingStatusChange({
       orderId,
-      nextStatus,
+      nextStatus: canonicalNextStatus,
       currentStatus,
       customerName: getCustomerName(order),
       shortId: getShortOrderId(order),
@@ -768,12 +778,22 @@ function OrderManagementPage() {
       return next;
     });
     try {
-      await updateOrderStatus({ id, status });
+      const response = await updateOrderStatus({ id, status });
+      // Some API responses resolve with success:false instead of throwing.
+      if (response?.success === false) {
+        const reason =
+          (typeof response.message === "string" && response.message.trim()) ||
+          (typeof response.error === "string" && response.error.trim()) ||
+          "The orders service rejected this status change.";
+        throw new Error(reason);
+      }
       toast.success("Fulfillment status updated", { description: `Now ${status}.` });
       return true;
     } catch (updateError) {
       toast.error("Couldn’t update fulfillment status", {
-        description: updateError?.message || "Please try again.",
+        description:
+          updateError?.message ||
+          "The orders service didn’t confirm the change. Check your connection and try again.",
       });
       return false;
     } finally {
