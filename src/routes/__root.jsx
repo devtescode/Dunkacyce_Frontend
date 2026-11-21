@@ -87,6 +87,7 @@ function RootComponent() {
     "/payments",
     "/profile",
     "/change-password",
+    "/login",
   ].includes(pathname);
   const hideFooter = isAdmin || (isLoggedIn && isAuthAppRoute);
 

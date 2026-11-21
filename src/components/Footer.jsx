@@ -70,12 +70,12 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-white/10">
+      {/* <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-primary-foreground/65 sm:flex-row sm:px-6 lg:px-8">
           <p>© {year} DUNNKAYCE. All rights reserved.</p>
           <p>Fresh. Tasty. Delivered.</p>
         </div>
-      </div>
+      </div> */}
     </footer>
   );
 }
