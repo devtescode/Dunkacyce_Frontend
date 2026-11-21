@@ -4,32 +4,42 @@ export const FULFILLMENT_STATUSES = ["Pending", "Preparing", "Ready", "Delivered
 
 export const DEFAULT_ETA_MINUTES = 8;
 
+const MAX_VALID_TIME = 8.64e15; // Date's largest representable epoch (ms)
+
 function toEpochMs(value) {
   if (value == null || value === "") return null;
   if (value instanceof Date) {
     const time = value.getTime();
     return Number.isNaN(time) ? null : time;
   }
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) && Math.abs(value) <= MAX_VALID_TIME ? value : null;
+  }
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (/^-?\d+$/.test(trimmed)) {
       const numeric = Number(trimmed);
-      return Number.isFinite(numeric) ? numeric : null;
+      return Number.isFinite(numeric) && Math.abs(numeric) <= MAX_VALID_TIME ? numeric : null;
     }
   }
   const time = new Date(value).getTime();
-  return Number.isNaN(time) ? null : time;
+  return Number.isNaN(time) || Math.abs(time) > MAX_VALID_TIME ? null : time;
 }
 
-/** Canonicalizes case/whitespace variations, defaulting unknown values. */
+/** Canonicalizes known statuses; unknown values are preserved for the UI to classify. */
 export function normalizeStatus(order) {
-  const value = String(order?.status ?? "")
-    .trim()
-    .toLowerCase();
-  const match = FULFILLMENT_STATUSES.find((status) => status.toLowerCase() === value);
-  return match || "Preparing";
+  const raw = String(order?.status ?? "").trim();
+  if (!raw) return "Preparing";
+  return FULFILLMENT_STATUSES.find((status) => status.toLowerCase() === raw.toLowerCase()) || raw;
+}
+
+/** An effective ETA, allowing zero but rejecting invalid/negative values. */
+function getEtaMinutes(order) {
+  const raw = order?.etaMinutes;
+  if (raw == null || raw === "") return DEFAULT_ETA_MINUTES;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_ETA_MINUTES;
 }
 
 export function getReadyAt(order) {
@@ -37,18 +47,19 @@ export function getReadyAt(order) {
 }
 
 export function getDeliveredAt(order) {
+  // Only a Delivered order has delivery evidence. A reversal clears deliveredAt
+  // server-side, but guard here too so stale UI never claims a handoff.
+  if (normalizeStatus(order) !== "Delivered") return null;
   const deliveredAt = toEpochMs(order?.deliveredAt);
   if (deliveredAt != null) return deliveredAt;
   // Legacy delivered orders may only carry an updatedAt timestamp.
-  if (normalizeStatus(order) === "Delivered") return toEpochMs(order?.updatedAt);
-  return null;
+  return toEpochMs(order?.updatedAt);
 }
 
 export function getEtaDeadline(order) {
   const readyAt = getReadyAt(order);
   if (readyAt == null) return null;
-  const etaMinutes = Number(order?.etaMinutes) || DEFAULT_ETA_MINUTES;
-  return readyAt + etaMinutes * 60000;
+  return readyAt + getEtaMinutes(order) * 60000;
 }
 
 export function formatOrderDateTime(value) {
@@ -70,10 +81,15 @@ export function useCountdown(targetTime) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    setNow(Date.now());
-    if (target == null) return undefined;
+    const current = Date.now();
+    setNow(current);
+    if (target == null || current >= target) return undefined;
 
-    const intervalId = setInterval(() => setNow(Date.now()), 1000);
+    const intervalId = setInterval(() => {
+      const tick = Date.now();
+      setNow(tick);
+      if (tick >= target) clearInterval(intervalId);
+    }, 1000);
     return () => clearInterval(intervalId);
   }, [target]);
 
@@ -82,8 +98,10 @@ export function useCountdown(targetTime) {
   }
 
   const totalMs = Math.max(0, target - now);
-  const minutes = Math.floor(totalMs / 60000);
-  const seconds = Math.floor((totalMs % 60000) / 1000);
+  // Round remaining whole seconds up so the label never reads 00:00 while live.
+  const remainingSeconds = Math.max(0, Math.ceil(totalMs / 1000));
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
   const pad = (value) => String(value).padStart(2, "0");
 
   return {

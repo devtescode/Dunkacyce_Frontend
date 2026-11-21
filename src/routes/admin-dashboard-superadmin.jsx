@@ -1008,8 +1008,11 @@ function ActivationGate({ statusQuery, onActivate, isPending }) {
     } catch (activationError) {
       const status = activationError?.status ?? activationError?.payload?.status;
       let message = activationError?.message || "Could not activate Super Admin";
-      if (status === 403) message = "Invalid activation key";
+      if (status === 403) message = "Invalid activation key — use SUPER_ADMIN_ACTIVATION_KEY";
       else if (status === 409) message = "A Super Admin already exists";
+      else if (status === 503) {
+        message = "Activation is not configured. Add SUPER_ADMIN_ACTIVATION_KEY to the backend .env and restart the server.";
+      }
       setError(message);
       toast.error(message);
       void statusQuery.refetch();
@@ -1035,6 +1038,14 @@ function ActivationGate({ statusQuery, onActivate, isPending }) {
           No Super Admin is active yet. Sign in with an administrator account, then enter the
           activation key supplied by your organisation to take ownership of admin management.
         </p>
+        <div className="mx-auto mt-4 max-w-lg rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-left text-xs leading-5 text-foreground/90">
+          <span className="font-bold text-gold">Which key?</span> Use{" "}
+          <code className="rounded bg-background/70 px-1 py-0.5 font-mono">SUPER_ADMIN_ACTIVATION_KEY</code>{" "}
+          from the <strong>backend .env</strong>. The{" "}
+          <code className="rounded bg-background/70 px-1 py-0.5 font-mono">ADMIN_BOOTSTRAP_KEY</code> you may
+          have used to create the first admin is <strong>not</strong> the activation key. After this
+          one-time step, the “Super Admin” menu item and admin management tools appear.
+        </div>
 
         {signedIn ? (
           <form onSubmit={submit} className="mx-auto mt-7 max-w-md space-y-4 text-left" noValidate>

@@ -188,7 +188,7 @@ function OrdersPage() {
     if (!socket) return undefined;
 
     const seen = new Set();
-    const handleStatusEvent = (payload) => {
+    const handleStatusEvent = (payload = {}, eventName = "order_status_updated") => {
       const eventUserIds = [
         payload?.userId,
         payload?.order?.userId,
@@ -199,19 +199,29 @@ function OrdersPage() {
       ]
         .filter((value) => value !== undefined && value !== null && typeof value !== "object")
         .map(String);
-      // Accept the event when any user id in the payload matches this session.
-      if (eventUserIds.length > 0 && !eventUserIds.some((id) => id === String(user.id))) {
+      // Fail closed: only act on events that explicitly belong to this student.
+      if (eventUserIds.length === 0 || !eventUserIds.some((id) => id === String(user.id))) {
         return;
       }
 
-      const status = payload?.status ?? payload?.order?.status ?? "updated";
+      // Alias events can omit `status`; the event name itself is authoritative.
+      const status =
+        payload?.status ??
+        payload?.order?.status ??
+        (eventName === "order_ready"
+          ? "Ready"
+          : eventName === "order_delivered"
+            ? "Delivered"
+            : "Preparing");
       const orderId =
         payload?.orderId ??
         payload?.order?._id ??
         payload?.order?.id ??
         payload?.reference ??
         payload?.order?.reference;
-      const dedupeKey = `${orderId ?? "unknown"}:${status}`;
+      if (orderId == null) return;
+
+      const dedupeKey = `${String(orderId)}:${statusKey(status)}`;
       if (seen.has(dedupeKey)) return;
       seen.add(dedupeKey);
 
@@ -219,9 +229,10 @@ function OrdersPage() {
         queryKey: queryKeys.orders.user(user.id),
       });
 
+      const etaMinutes = Number(payload?.etaMinutes) || DEFAULT_ETA_MINUTES;
       const key = statusKey(status);
       if (key === "ready") {
-        toast.success("Your order is ready! It will reach you in about 8 minutes.");
+        toast.success(`Your order is ready! Estimated arrival in about ${etaMinutes} minutes.`);
       } else if (key === "delivered") {
         toast.success("Your order has been delivered. Enjoy!");
       } else if (key === "preparing") {
@@ -231,13 +242,23 @@ function OrdersPage() {
       }
     };
 
+    const resync = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.user(user.id) });
+    };
+    const handlers = new Map();
     for (const event of ORDER_STATUS_EVENTS) {
-      socket.on(event, handleStatusEvent);
+      const handler = (payload) => handleStatusEvent(payload, event);
+      handlers.set(event, handler);
+      socket.on(event, handler);
     }
+    // Socket.IO does not replay missed events; resync whenever the link returns.
+    socket.on("connect", resync);
+
     return () => {
-      for (const event of ORDER_STATUS_EVENTS) {
-        socket.off(event, handleStatusEvent);
+      for (const [event, handler] of handlers) {
+        socket.off(event, handler);
       }
+      socket.off("connect", resync);
     };
   }, [user?.id, queryClient]);
 
@@ -437,14 +458,14 @@ function OrdersPage() {
 
 function StatTile({ icon: Icon, label, value, hint }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+    <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-forest-deep/80 p-4 backdrop-blur-sm dark:bg-black/40">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-gold">
         <Icon aria-hidden="true" className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">{label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/90">{label}</p>
         <p className="mt-0.5 text-xl font-black tracking-tight tabular-nums text-white">{value}</p>
-        {hint ? <p className="text-[11px] text-white/60">{hint}</p> : null}
+        {hint ? <p className="text-[11px] text-white/80">{hint}</p> : null}
       </div>
     </div>
   );
@@ -508,7 +529,8 @@ function Toolbar({ search, onSearchChange, filter, onFilterChange, shown, total 
 function Spotlight({ order, status, countdown, etaMinutes }) {
   const key = statusKey(status);
   const isReady = key === "ready" || key === "on-the-way";
-  const isOnTheWay = key === "on-the-way" || (isReady && countdown.isExpired);
+  // Only a real backend dispatch status advances the tracker; an elapsed ETA is not dispatch.
+  const isOnTheWay = key === "on-the-way";
   const hasDeadline = getEtaDeadline(order) != null;
   const progress = hasDeadline
     ? Math.min(
@@ -543,7 +565,13 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-primary">Right now</p>
             <h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
-              {isReady ? (isOnTheWay ? "On the way to you" : "Ready — on the way") : "Preparing"}
+              {isReady
+                ? isOnTheWay
+                  ? "On the way to you"
+                  : key === "ready" && countdown.isExpired
+                    ? "Ready — arrival estimate elapsed"
+                    : "Ready for handoff"
+                : "Preparing"}
             </h2>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin aria-hidden="true" className="h-4 w-4 text-primary" />
@@ -563,10 +591,17 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
         <StatusTracker status={status} onTheWay={isOnTheWay} />
       </div>
 
-      <div
-        aria-live="polite"
-        className="mt-8 rounded-[1.5rem] border border-border bg-card p-5 sm:p-6"
-      >
+      <p className="sr-only" aria-live="polite">
+        {!isReady
+          ? "Your order is being prepared."
+          : !hasDeadline
+            ? "Your order is ready. Arrival time is being confirmed."
+            : countdown.isExpired
+              ? "Arrival estimate elapsed. We are checking with the kitchen."
+              : `Your order is ready. About ${countdown.minutes} minutes remaining.`}
+      </p>
+
+      <div className="mt-8 rounded-[1.5rem] border border-border bg-card p-5 sm:p-6">
         {isReady ? (
           <>
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -574,27 +609,31 @@ function Spotlight({ order, status, countdown, etaMinutes }) {
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">
                   Arrival countdown
                 </p>
-                <p className="mt-2 text-4xl font-black tracking-tight tabular-nums text-foreground sm:text-6xl">
+                <p
+                  aria-hidden="true"
+                  className="mt-2 text-4xl font-black tracking-tight tabular-nums text-foreground sm:text-6xl"
+                >
                   {!hasDeadline
-                    ? "On the way"
+                    ? "Estimating"
                     : countdown.isExpired
-                      ? "Almost there"
+                      ? "ETA elapsed"
                       : countdown.label}
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {!hasDeadline
-                    ? "Your arrival time is being confirmed — stay close."
+                    ? "Your arrival estimate is being confirmed — stay close."
                     : countdown.isExpired
-                      ? "Arriving shortly — our rider is almost there."
+                      ? "The estimated window has passed. We’re checking with the kitchen and will update you shortly."
                       : `until your order reaches ${hostel} · Room ${room}`}
                 </p>
               </div>
               <div className="sm:max-w-xs sm:text-right">
                 <p className="text-sm font-black tracking-tight text-foreground">
-                  Keep your phone close — we&apos;re on our way.
+                  Keep your phone close — we&apos;ll update you as soon as it&apos;s delivered.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Your food will arrive in the next {etaMinutes} minutes.
+                  Estimated arrival window: about {etaMinutes} minutes from when your order was
+                  marked ready.
                 </p>
               </div>
             </div>
@@ -662,8 +701,13 @@ function DeliveredBanner({ order }) {
       </div>
       <p className="flex items-center gap-2 text-sm font-bold text-foreground">
         <CalendarClock aria-hidden="true" className="h-4 w-4 text-primary" />
-        Delivered on{" "}
-        <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+        {deliveredAt == null ? (
+          "Delivery time not recorded"
+        ) : (
+          <>
+            Delivered on <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+          </>
+        )}
       </p>
     </section>
   );
@@ -754,7 +798,7 @@ function StatusTracker({ status, compact = false, onTheWay = false }) {
             </div>
             <span
               className={cn(
-                "mt-2 text-center text-[10px] font-bold uppercase tracking-wide sm:text-xs",
+                "mt-2 break-words text-center text-[9px] font-bold leading-tight uppercase tracking-wide sm:text-xs",
                 complete
                   ? "text-success dark:text-fresh"
                   : current
@@ -869,20 +913,45 @@ function OrderCard({ order }) {
       {key === "delivered" ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-success/10 px-4 py-3 text-sm font-bold text-success dark:text-fresh">
           <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-          <span>
-            Delivered on{" "}
-            <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
-          </span>
+          {deliveredAt == null ? (
+            <span>Delivery time not recorded</span>
+          ) : (
+            <span>
+              Delivered on{" "}
+              <time dateTime={dateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+            </span>
+          )}
         </div>
       ) : key === "ready" || key === "on-the-way" ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-800 dark:text-sky-300">
-          <Bike aria-hidden="true" className="h-4 w-4" />
-          <span>
-            Ready at <time dateTime={dateTimeAttr(readyAt)}>{formatOrderDateTime(readyAt)}</time> ·
-            arriving in ~{etaMinutes} min
-          </span>
-        </div>
+        <ReadyEta order={order} etaMinutes={etaMinutes} readyAt={readyAt} />
       ) : null}
     </article>
+  );
+}
+
+/** Per-order live ETA so every ready order can be monitored, not just the spotlight. */
+function ReadyEta({ order, etaMinutes, readyAt }) {
+  const deadline = getEtaDeadline(order);
+  const countdown = useCountdown(deadline);
+
+  return (
+    <div className="mt-4 rounded-2xl bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-800 dark:text-sky-300">
+      <div className="flex flex-wrap items-center gap-2">
+        <Bike aria-hidden="true" className="h-4 w-4" />
+        <span>
+          Ready at <time dateTime={dateTimeAttr(readyAt)}>{formatOrderDateTime(readyAt)}</time>
+        </span>
+        <span aria-hidden="true" className="tabular-nums">
+          {deadline == null
+            ? `· arriving in ~${etaMinutes} min`
+            : countdown.isExpired
+              ? "· arrival estimate elapsed — we’re checking"
+              : `· arriving in ${countdown.label}`}
+        </span>
+      </div>
+      <p className="mt-1 text-xs font-medium text-muted-foreground">
+        Estimated arrival window: about {etaMinutes} minutes from when your order was marked ready.
+      </p>
+    </div>
   );
 }

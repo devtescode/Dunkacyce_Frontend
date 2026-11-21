@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   CalendarCheck2,
@@ -394,6 +394,14 @@ function FulfillmentControl({
   const shortId = getShortOrderId(order);
   const orderId = getOrderId(order);
   const UnlockIcon = isUnlocked ? LockOpen : Lock;
+  const lockButtonRef = useRef(null);
+  const wasUnlocked = useRef(isUnlocked);
+
+  // Re-lock after a confirmed change removes the Select; restore focus to the lock button.
+  useEffect(() => {
+    if (wasUnlocked.current && !isUnlocked) lockButtonRef.current?.focus();
+    wasUnlocked.current = isUnlocked;
+  }, [isUnlocked]);
 
   return (
     <div className="w-full space-y-2 sm:max-w-[280px]">
@@ -403,11 +411,12 @@ function FulfillmentControl({
       <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2">
         <StatusPill tone={getStatusToneName(currentStatus)}>{currentStatus}</StatusPill>
         <button
+          ref={lockButtonRef}
           type="button"
           onClick={onToggleUnlock}
           disabled={isUpdating || !orderId}
-          aria-label={`${isUnlocked ? "Lock" : "Unlock"} status control for order ${shortId}`}
-          aria-pressed={isUnlocked}
+          aria-label={`Change fulfillment status for order ${shortId}`}
+          title={isUnlocked ? "Lock status control" : "Unlock status control"}
           className={cn(
             "ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-transparent text-muted-foreground transition hover:border-border hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
             isUnlocked && "border-primary/25 bg-primary/10 text-primary",
@@ -424,12 +433,16 @@ function FulfillmentControl({
           disabled={isUpdating || !orderId}
         >
           <SelectTrigger
-            className="h-9 rounded-xl bg-background"
+            className="h-9 rounded-xl bg-background focus-visible:ring-2 focus-visible:ring-offset-2"
             aria-label={`Update status for order ${shortId}`}
+            aria-busy={isUpdating}
           >
             <span className="flex items-center gap-2">
               {isUpdating ? (
-                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                <>
+                  <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                  <span className="sr-only">Updating status…</span>
+                </>
               ) : null}
               <SelectValue placeholder="Select status" />
             </span>
@@ -444,7 +457,7 @@ function FulfillmentControl({
         </Select>
       ) : (
         <p className="text-xs leading-5 text-muted-foreground">
-          Click the lock to change the fulfillment status.
+          Use the lock button (Enter or Space) to change the fulfillment status.
         </p>
       )}
 
@@ -627,8 +640,11 @@ function OrderManagementPage() {
     const events = ["order_status_updated", "order_ready", "order_delivered"];
 
     events.forEach((event) => socket.on(event, invalidateOrders));
+    // Socket.IO does not replay missed events; resync on every (re)connection.
+    socket.on("connect", invalidateOrders);
     return () => {
       events.forEach((event) => socket.off(event, invalidateOrders));
+      socket.off("connect", invalidateOrders);
     };
   }, [queryClient]);
 
@@ -942,7 +958,7 @@ function OrderManagementPage() {
               </label>
               <FilterSelect
                 id="sort-orders"
-                label="Sort paid orders"
+                label="Sort by"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 options={SORT_OPTIONS}

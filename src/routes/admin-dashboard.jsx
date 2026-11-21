@@ -7,6 +7,7 @@ import {
   Banknote,
   ChefHat,
   ClipboardList,
+  Crown,
   KeyRound,
   RefreshCw,
   ShoppingCart,
@@ -49,10 +50,12 @@ import {
 import {
   useAdminDashboardStatsQuery,
   useAdminOrdersQuery,
+  useSuperadminStatusQuery,
   useFoodsQuery,
   useRushHourQuery,
   useToggleRushHourMutation,
 } from "@/lib/api";
+import { isSuperAdmin } from "@/lib/adminSession";
 import { FOOD_HIGHLIGHTS, getFoodPhoto } from "@/lib/foodImages";
 import { cn } from "@/lib/utils";
 
@@ -223,6 +226,7 @@ function AdminDashboardPage() {
   const [admin, setAdmin] = useState(null);
 
   const dashboardStatsQuery = useAdminDashboardStatsQuery();
+  const superadminStatusQuery = useSuperadminStatusQuery();
   const rushHourQuery = useRushHourQuery();
   const toggleRushHourMutation = useToggleRushHourMutation();
   const ordersQuery = useAdminOrdersQuery();
@@ -417,6 +421,28 @@ function AdminDashboardPage() {
       description="Monitor campus demand, steer kitchen throughput, and jump into the controls that keep Dunnkayce running smoothly."
     >
       <div className="space-y-8 pb-4">
+        {superadminStatusQuery.data?.exists === false && !isSuperAdmin() ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Crown className="mt-0.5 h-5 w-5 shrink-0 text-gold" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Finish Super Admin setup</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Use <span className="font-mono">SUPER_ADMIN_ACTIVATION_KEY</span> from the backend{" "}
+                  <span className="font-mono">.env</span> to unlock admin creation. The bootstrap key
+                  you used at signup only created this first admin account.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/admin-dashboard-superadmin"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-gold/40 bg-gold/15 px-4 py-2 text-xs font-semibold text-gold transition hover:bg-gold/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+            >
+              Finish setup
+            </Link>
+          </div>
+        ) : null}
+
         {/* PAGE INTRO + FOREST HERO */}
         <section aria-label="Operations overview" className="space-y-5">
           <PageHeader

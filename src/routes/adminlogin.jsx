@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import {
   ArrowRight,
   CheckCircle2,
+  Eye,
+  EyeOff,
   Lock,
   Mail,
   RefreshCw,
@@ -34,6 +36,7 @@ function AdminAuthPage() {
   const [isRegistered, setIsRegistered] = useState(null); // null = loading check
   const [fieldErrors, setFieldErrors] = useState({});
   const [justRegistered, setJustRegistered] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
@@ -342,9 +345,9 @@ function AdminAuthPage() {
                     <input
                       id="admin-register-password"
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
-                      className="w-full bg-transparent py-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full bg-transparent py-3 pr-2 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
                       placeholder="Create a strong password"
                       value={form.password}
                       onChange={updateField("password")}
@@ -352,6 +355,11 @@ function AdminAuthPage() {
                       aria-describedby={
                         fieldErrors.password ? "admin-register-password-error" : undefined
                       }
+                      disabled={loading}
+                    />
+                    <PasswordVisibilityToggle
+                      visible={showPassword}
+                      onToggle={() => setShowPassword((current) => !current)}
                       disabled={loading}
                     />
                   </InputShell>
@@ -418,9 +426,9 @@ function AdminAuthPage() {
                     <input
                       id="admin-login-password"
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
-                      className="w-full bg-transparent py-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full bg-transparent py-3 pr-2 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
                       placeholder="Enter your password"
                       value={form.password}
                       onChange={updateField("password")}
@@ -428,6 +436,11 @@ function AdminAuthPage() {
                       aria-describedby={
                         fieldErrors.password ? "admin-login-password-error" : undefined
                       }
+                      disabled={loading}
+                    />
+                    <PasswordVisibilityToggle
+                      visible={showPassword}
+                      onToggle={() => setShowPassword((current) => !current)}
                       disabled={loading}
                     />
                   </InputShell>
@@ -608,6 +621,25 @@ function Field({ label, htmlFor, error, children }) {
         </p>
       ) : null}
     </div>
+  );
+}
+
+function PasswordVisibilityToggle({ visible, onToggle, disabled = false }) {
+  const Icon = visible ? EyeOff : Eye;
+  const label = visible ? "Hide password" : "Show password";
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label={label}
+      aria-pressed={visible}
+      title={label}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </button>
   );
 }
 

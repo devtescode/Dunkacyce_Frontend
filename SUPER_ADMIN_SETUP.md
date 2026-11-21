@@ -39,6 +39,8 @@ Content-Type: application/json
 
 If `ADMIN_BOOTSTRAP_KEY` is configured, add `"bootstrapKey": "<value>"` to the body (`GET /admin/exists` reports `requiresBootstrapKey: true`). Once an admin exists, this route is closed.
 
+> **Two different keys — do not mix them up.** `ADMIN_BOOTSTRAP_KEY` only gates this very first registration and creates a **regular `admin`**. It does **not** grant admin-management access. The key that unlocks creating other admins is `SUPER_ADMIN_ACTIVATION_KEY`, used in step 5.
+
 ## 4. Log in as that admin
 
 ```http
@@ -52,7 +54,9 @@ Response contains `token`, `admin` (with `role: "admin"`), top-level `role` and 
 
 ## 5. Activate the Super Admin
 
-Use the token from step 4 and the backend-only key:
+In the UI, while no Super Admin exists, a **Finish Setup** link appears in the admin sidebar (Security group) and a banner on the Overview page, plus a top-bar button. It opens `/admin-dashboard-superadmin`; enter the activation key there. Once activated, that setup link disappears and the role-only **Super Admin** item takes its place.
+
+Equivalent raw API call using the token from step 4 and the backend-only key:
 
 ```http
 POST /api/superadmin/activate
@@ -67,7 +71,7 @@ PowerShell example:
 ```powershell
 $body = @{ activationKey = $env:SUPER_ADMIN_ACTIVATION_KEY } | ConvertTo-Json
 Invoke-RestMethod -Method Post `
-  -Uri "https://dunkacyce-backend.onrender.com/api/superadmin/activate" `
+  -Uri "http://localhost:5000/api/superadmin/activate" `
   -Headers @{ Authorization = "Bearer $adminToken"; "Content-Type" = "application/json" } `
   -Body $body
 ```

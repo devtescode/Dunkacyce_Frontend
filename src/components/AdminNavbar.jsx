@@ -10,13 +10,14 @@ import {
   ShoppingCart,
   KeyRound,
   LogOut,
+  ShieldCheck,
   Crown,
   ChevronRight,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusPill, ThemeToggle } from "@/components/admin";
-import { getToken, useSuperadminMeQuery } from "@/lib/api";
+import { getToken, useSuperadminMeQuery, useSuperadminStatusQuery } from "@/lib/api";
 import {
   formatAdminRole,
   getAdminIdentity,
@@ -42,6 +43,17 @@ const adminNavItems = [
   // { to: "/admin-dashboard-delivery-management", label: "Delivery Management", icon: MapPin },
   // { to: "/admin-dashboard-system-settings", label: "System Settings", icon: ShieldCheck },
   { to: "/admin-dashboard-change-password", label: "Change Password", icon: KeyRound, group: "Security" },
+  // One-time setup link: shown to an authenticated admin ONLY until a Super
+  // Admin exists. It is deliberately not the "Super Admin" item, which stays
+  // exclusive to the actual Super Admin role.
+  {
+    key: "activation",
+    to: "/admin-dashboard-superadmin",
+    label: "Finish Setup",
+    icon: ShieldCheck,
+    group: "Security",
+    activationOnly: true,
+  },
   {
     to: "/admin-dashboard-superadmin",
     label: "Super Admin",
@@ -98,16 +110,19 @@ function AdminNavLink({ item, active, onNavigate, mobile = false }) {
   );
 }
 
-function SidebarNav({ pathname, onNavigate, mobile = false }) {
+function SidebarNav({ pathname, onNavigate, pendingActivation = false, mobile = false }) {
   return (
     <nav aria-label="Admin sections" className={cn("shrink-0 px-1", mobile ? "mt-4 space-y-3" : "space-y-1")}>
       <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-gold/80">
         Workspaces
       </p>
       {navGroups.map((group) => {
-        const items = adminNavItems.filter(
-          (item) => item.group === group && (!item.superOnly || isSuperAdmin()),
-        );
+        const items = adminNavItems.filter((item) => {
+          if (item.group !== group) return false;
+          if (item.superOnly) return isSuperAdmin();
+          if (item.activationOnly) return pendingActivation && !isSuperAdmin();
+          return true;
+        });
         if (items.length === 0) return null;
         return (
           <div key={group}>
@@ -117,7 +132,7 @@ function SidebarNav({ pathname, onNavigate, mobile = false }) {
             <div className="space-y-1">
               {items.map((item) => (
                 <AdminNavLink
-                  key={item.to}
+                  key={item.key ?? item.to}
                   item={item}
                   active={pathname === item.to}
                   onNavigate={onNavigate}
@@ -177,6 +192,7 @@ export function AdminNavbar({ children }) {
   const queryClient = useQueryClient();
   const [, refreshRoleDependentUi] = useState(0);
   const { data: superadminMe, error: superadminMeError } = useSuperadminMeQuery();
+  const { data: superadminStatus } = useSuperadminStatusQuery();
 
   // The backend is authoritative for role/status. Reconcile the stored identity
   // when /api/superadmin/me responds, and drop revoked sessions immediately.
@@ -184,6 +200,7 @@ export function AdminNavbar({ children }) {
     if (superadminMeError?.status === 401) {
       sessionStorage.removeItem("adminToken");
       sessionStorage.removeItem("admin");
+      disconnectAdminSocket();
       toast.error("Your session ended or your access was revoked. Please sign in again.");
       navigate({ to: "/adminlogin", replace: true });
       return;
@@ -194,6 +211,7 @@ export function AdminNavbar({ children }) {
     if (superadminMe.status === "blocked" || superadminMe.status === "inactive") {
       sessionStorage.removeItem("adminToken");
       sessionStorage.removeItem("admin");
+      disconnectAdminSocket();
       toast.error("Your admin access is no longer active. Please contact a Super Admin.");
       navigate({ to: "/adminlogin", replace: true });
       return;
@@ -320,10 +338,18 @@ export function AdminNavbar({ children }) {
     return children ?? null;
   }
 
-  const activeItem = adminNavItems.find((item) => pathname === item.to);
+  const superAdmin = isSuperAdmin();
+  // Only show the one-time setup link when the backend confirms no Super Admin
+  // exists. Once activated it disappears, replaced by the role-only item above.
+  const pendingActivation = !superAdmin && superadminStatus?.exists === false;
+  const activeItem = adminNavItems.find(
+    (item) =>
+      pathname === item.to &&
+      (!item.superOnly || superAdmin) &&
+      (!item.activationOnly || pendingActivation),
+  );
   const currentLabel = activeItem?.label ?? "Preview workspace";
   const isPreview = !activeItem;
-  const superAdmin = isSuperAdmin();
   const roleLabel = formatAdminRole(getAdminRole());
   const sidebarToggleLabel = desktopOpen ? "Collapse sidebar" : "Expand sidebar";
 
@@ -391,7 +417,7 @@ export function AdminNavbar({ children }) {
               <span aria-hidden="true" className="mt-3 block h-0.5 w-9 rounded-full bg-gold" />
             </div>
 
-            <SidebarNav pathname={pathname} />
+            <SidebarNav pathname={pathname} pendingActivation={pendingActivation} />
 
             <div className="mt-auto shrink-0 pt-5">
               <SidebarStatus
@@ -442,6 +468,15 @@ export function AdminNavbar({ children }) {
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {pendingActivation ? (
+                <Link
+                  to="/admin-dashboard-superadmin"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-3 text-xs font-semibold text-gold transition hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
+                >
+                  <Crown className="h-4 w-4" aria-hidden="true" />
+                  Finish setup
+                </Link>
+              ) : null}
               <ThemeToggle compact />
               <button
                 type="button"
@@ -511,7 +546,12 @@ export function AdminNavbar({ children }) {
               </button>
             </div>
 
-            <SidebarNav pathname={pathname} onNavigate={closeDrawer} mobile />
+            <SidebarNav
+              pathname={pathname}
+              onNavigate={closeDrawer}
+              pendingActivation={pendingActivation}
+              mobile
+            />
 
             <div className="mt-auto p-4 pt-6">
               <SidebarStatus

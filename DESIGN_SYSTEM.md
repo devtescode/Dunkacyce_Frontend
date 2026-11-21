@@ -78,7 +78,7 @@ Rules: consistent `aspect-[4/3]` for cards/previews (1:1 thumbnails only where s
 1. Preserve every route path and `createFileRoute` call. Never hand-edit `routeTree.gen.ts`.
 2. Preserve every API/query/mutation hook and cache key. Never add `fetch`, new endpoints, or mock data to functional pages.
 3. Preserve all handlers, toasts, filters, sorts, form payloads, session writes, and validation gates. Visual pass only, except:
-   - Order status control **must stay permanently disabled** with a clear "Status updates unavailable — backend endpoint not deployed" hint. Do not call `useUpdateOrderStatusMutation` from an enabled control. The mutation hook import may remain unused if removed from UI; remove it if unused.
+   - Order status control is lock-gated: a lock button unlocks the per-order status `<select>`, and a confirmed change calls `useUpdateOrderStatusMutation` (`PUT /orders/:id/status`). Show the recorded ready/delivered date and time as evidence; never claim the endpoint is unavailable.
    - Explicit error branches may be added where errors previously rendered as empty states (orders, carts). Must reuse existing `refetch()`.
    - Inline field errors and form-state cleanup may be added on login/food forms without weakening validation.
    - `id ?? _id` normalization, `data?.food` safety, and local SVG image fallbacks are allowed.

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { store, useStore } from "@/lib/store";
 import { clearSession } from "@/lib/session";
 import { useCurrentUserCartQuery } from "@/lib/api";
+import { disconnectUserSocket } from "@/lib/socket";
 import { useTheme } from "@/lib/theme";
 
 const publicLinks = [
@@ -101,6 +102,7 @@ export function Navbar() {
   };
 
   const handleLogout = () => {
+    disconnectUserSocket();
     store.logout();
     clearSession();
     queryClient.clear();
