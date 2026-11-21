@@ -30,6 +30,16 @@ export function Navbar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  const profilePicture =
+    typeof user?.profilePicture === "string" && user.profilePicture.trim()
+      ? user.profilePicture.trim()
+      : "";
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [profilePicture]);
 
   // Lock body scroll & blur main content when side nav is open
   useEffect(() => {
@@ -67,12 +77,22 @@ export function Navbar() {
             {navItems.map((it) => {
               const Icon = it.icon;
               const active = pathname === it.to;
+              const showAvatar = it.to === "/profile" && profilePicture && !avatarError;
               return (
                 <Link key={it.to} to={it.to} className={cn(
                   "relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 )}>
-                  <Icon className="h-4 w-4" />
+                  {showAvatar ? (
+                    <img
+                      src={profilePicture}
+                      alt="Profile"
+                      className="h-5 w-5 rounded-full object-cover"
+                      onError={() => setAvatarError(true)}
+                    />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
                   {it.label}
                   {it.to === "/cart" && cartCount > 0 && (
                     <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
@@ -135,6 +155,7 @@ export function Navbar() {
             {navItems.map((it) => {
               const Icon = it.icon;
               const active = pathname === it.to;
+              const showAvatar = it.to === "/profile" && profilePicture && !avatarError;
               return (
                 <Link
                   key={it.to}
@@ -145,7 +166,16 @@ export function Navbar() {
                     active ? "bg-accent text-accent-foreground" : "hover:bg-secondary"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  {showAvatar ? (
+                    <img
+                      src={profilePicture}
+                      alt="Profile"
+                      className="h-5 w-5 rounded-full object-cover"
+                      onError={() => setAvatarError(true)}
+                    />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
                   <span className="flex-1">{it.label}</span>
                   {it.to === "/cart" && cartCount > 0 && (
                     <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground">{cartCount}</span>

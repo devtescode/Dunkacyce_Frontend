@@ -10,6 +10,8 @@ import {
   Search,
   SlidersHorizontal,
   Truck,
+  UserCheck,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -96,6 +98,19 @@ function getCustomerEmail(order) {
 
 function getCustomerPhone(order) {
   return order?.userId?.phone || order?.user?.phone || "—";
+}
+
+function getStudentKey(order) {
+  const user = order?.userId ?? order?.user;
+  const id = user?._id ?? user?.id ?? user?.email ?? user;
+  if (id === undefined || id === null || id === "") return null;
+  if (typeof id === "object") {
+    const fallback = id?._id ?? id?.id ?? id?.email;
+    return fallback === undefined || fallback === null || fallback === ""
+      ? null
+      : String(fallback);
+  }
+  return String(id);
 }
 
 function getItems(order) {
@@ -470,8 +485,20 @@ function OrderManagementPage() {
     const preparing = orders.filter((order) => order?.status === "Preparing").length;
     const ready = orders.filter((order) => order?.status === "Ready").length;
     const delivered = orders.filter((order) => order?.status === "Delivered").length;
+    const paidStudentIds = new Set();
+    const studentsToDeliverIds = new Set();
+    orders.forEach((order) => {
+      const studentKey = getStudentKey(order);
+      if (!studentKey) return;
+      paidStudentIds.add(studentKey);
+      if (order?.status !== "Delivered") {
+        studentsToDeliverIds.add(studentKey);
+      }
+    });
     return {
       paidCount: orders.length,
+      paidStudents: paidStudentIds.size,
+      studentsToDeliver: studentsToDeliverIds.size,
       revenue,
       preparing,
       ready,
@@ -594,13 +621,30 @@ function OrderManagementPage() {
       }
     >
       <div className="space-y-6">
-        <section aria-label="Paid order statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section
+          aria-label="Paid order statistics"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
+        >
           <StatCard
             icon={Wallet}
             label="Paid Orders"
             value={stats.paidCount}
             hint="Successful payments only"
             tone="border-primary/20 bg-primary/10 text-primary"
+          />
+          <StatCard
+            icon={Users}
+            label="Paid Students"
+            value={stats.paidStudents}
+            hint="Distinct students with paid orders"
+            tone="border-violet-200 bg-violet-50 text-violet-700"
+          />
+          <StatCard
+            icon={UserCheck}
+            label="Students To Deliver"
+            value={stats.studentsToDeliver}
+            hint="Paid students awaiting delivery"
+            tone="border-orange-200 bg-orange-50 text-orange-700"
           />
           <StatCard
             icon={ReceiptText}
