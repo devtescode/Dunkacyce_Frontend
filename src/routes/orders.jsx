@@ -106,6 +106,14 @@ function toMillis(value) {
   return Number.isNaN(time) ? 0 : time;
 }
 
+function orderPlacedAt(order) {
+  return (
+    toMillis(order?.paidAt) ||
+    toMillis(order?.createdAt) ||
+    toMillis(order?.updatedAt)
+  );
+}
+
 function dateTimeAttr(value) {
   const date = toMillis(value) ? new Date(toMillis(value)) : null;
   return date ? date.toISOString() : undefined;
@@ -142,10 +150,7 @@ function OrdersPage() {
   }, [user, navigate]);
 
   const sortedOrders = useMemo(
-    () =>
-      [...orders].sort(
-        (a, b) => toMillis(b.updatedAt ?? b.createdAt) - toMillis(a.updatedAt ?? a.createdAt),
-      ),
+    () => [...orders].sort((a, b) => orderPlacedAt(b) - orderPlacedAt(a)),
     [orders],
   );
 
