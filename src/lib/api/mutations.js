@@ -64,6 +64,27 @@ export function useChangePasswordMutation(options = {}) {
   });
 }
 
+/* --------------------------------- profile -------------------------------- */
+
+export function useUpdateProfileMutation(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...rest } = options;
+  return useMutation({
+    mutationFn: (payload) =>
+      api.put("/dunnkayce/profile", { body: payload, auth: "user" }),
+    onSuccess: async (data, variables, context) => {
+      if (data?.user !== undefined) {
+        queryClient.setQueryData(queryKeys.profile.current(), data.user);
+      }
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.profile.all(),
+      });
+      await onSuccess?.(data, variables, context);
+    },
+    ...rest,
+  });
+}
+
 /* ---------------------------------- cart ---------------------------------- */
 
 function useCartMutationConfig(options = {}) {
@@ -214,11 +235,6 @@ export function useToggleRushHourMutation(options = {}) {
 
 /* --------------------------------- admin ---------------------------------- */
 
-/**
- * NOTE: `PUT /orders/:id/status` is currently commented out in NewDun_BE
- * (Routes/order.routes.js). The call is kept so the UI keeps its existing
- * behavior; it will surface the backend 404 as a mutation error.
- */
 export function useUpdateOrderStatusMutation(options = {}) {
   const queryClient = useQueryClient();
   const { onSuccess, ...rest } = options;

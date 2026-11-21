@@ -10,6 +10,8 @@ import {
   RefreshCw,
   ShoppingCart,
   TrendingUp,
+  Truck,
+  UserCheck,
   Users,
   Zap,
 } from "lucide-react";
@@ -112,7 +114,7 @@ function AdminDashboardPage() {
       subtitle: "Registered campus users",
       icon: Users,
       accent: "bg-primary/10 text-primary",
-      value: stats ? stats.totalStudents.toLocaleString() : null,
+      value: stats ? (stats.totalStudents ?? 0).toLocaleString() : null,
     },
     {
       key: "orders",
@@ -120,7 +122,23 @@ function AdminDashboardPage() {
       subtitle: "Total orders placed",
       icon: ClipboardList,
       accent: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-      value: stats ? stats.totalOrders.toLocaleString() : null,
+      value: stats ? (stats.totalOrders ?? 0).toLocaleString() : null,
+    },
+    {
+      key: "paid-students",
+      title: "Paid Students",
+      subtitle: "Distinct students with at least one paid order",
+      icon: UserCheck,
+      accent: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+      value: stats ? (stats.paidStudents ?? 0).toLocaleString() : null,
+    },
+    {
+      key: "students-to-deliver",
+      title: "Students To Deliver",
+      subtitle: "Paid students with orders awaiting delivery",
+      icon: Truck,
+      accent: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+      value: stats ? (stats.studentsToDelivery ?? 0).toLocaleString() : null,
     },
     {
       key: "revenue",
@@ -128,9 +146,9 @@ function AdminDashboardPage() {
       subtitle: "This week's earnings",
       icon: Banknote,
       accent: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-      value: stats ? `₦${stats.weeklyRevenue.toLocaleString()}` : null,
+      value: stats ? `₦${(stats.weeklyRevenue ?? 0).toLocaleString()}` : null,
     },
-    ...(stats && stats.totalOrders > 0
+    ...(stats && (stats.totalOrders ?? 0) > 0
       ? [
           {
             key: "aov",
@@ -138,7 +156,7 @@ function AdminDashboardPage() {
             subtitle: "Weekly revenue per order",
             icon: TrendingUp,
             accent: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-            value: `₦${avgOrderValue.toLocaleString()}`,
+            value: `₦${(avgOrderValue ?? 0).toLocaleString()}`,
           },
         ]
       : []),
@@ -325,7 +343,11 @@ function AdminDashboardPage() {
 
           <div
             className={`grid gap-4 sm:grid-cols-2 ${
-              kpis.length > 3 ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              kpis.length > 4
+                ? "xl:grid-cols-3"
+                : kpis.length > 3
+                  ? "xl:grid-cols-4"
+                  : "xl:grid-cols-3"
             }`}
           >
             {kpis.map((item) => {

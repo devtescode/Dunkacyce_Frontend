@@ -1,4 +1,5 @@
 import { AdminNavbar } from "@/components/AdminNavbar";
+import { AdminPaymentNotifier } from "@/components/AdminPaymentNotifier";
 import { cn } from "@/lib/utils";
 
 export function AdminShell({ title, description, eyebrow, actions, children, className }) {
@@ -6,6 +7,7 @@ export function AdminShell({ title, description, eyebrow, actions, children, cla
 
   return (
     <AdminNavbar>
+      <AdminPaymentNotifier />
       <div className={cn("mx-auto w-full max-w-[1600px] space-y-6", className)}>
         {hasHeader ? (
           <header className="rounded-3xl border border-border/70 bg-card/80 p-5 shadow-sm backdrop-blur-sm sm:p-6 lg:p-7">

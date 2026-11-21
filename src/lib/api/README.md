@@ -35,8 +35,9 @@ All backend calls go through this folder. Components should **not** call `fetch(
 | `useCurrentUserCartQuery(options)` | `GET /cart/getusercart` (user JWT) | `CartItem[]` (`data.cart`, default `[]`); disabled until a user token exists | `["cart","current"]` |
 | `useUserOrdersQuery(userId, options)` | `GET /orders/user/:userId` | `Order[]` (`data.orders`); disabled without `userId` | `["orders","user",userId]` |
 | `usePaymentHistoryQuery(userId, options)` | `GET /orders/user/:userId/receipts` | receipt `Order[]` (`data.orders`); disabled without `userId` | `["orders","receipts",userId]` |
+| `useProfileQuery(options)` | `GET /dunnkayce/profile` (user JWT) | current user profile (`data.user`, default `null`); disabled until a user token exists | `["profile","current"]` |
 | `useAdminExistsQuery(options)` | `GET /admin/exists` | `boolean` (`data.exists`) | `["auth","admin","exists"]` |
-| `useAdminDashboardStatsQuery(options)` | `GET /admin/dashboard-stats` | `{ totalStudents, totalOrders, weeklyRevenue }` (missing fields default to `0`) | `["admin","dashboard-stats"]` |
+| `useAdminDashboardStatsQuery(options)` | `GET /admin/dashboard-stats` | `{ totalStudents, totalOrders, weeklyRevenue, paidStudents, studentsToDelivery }` (missing fields default to `0`) | `["admin","dashboard-stats"]` |
 | `useAdminOrdersQuery(options)` | `GET /admin/getorders` | `Order[]` (`data.orders`) | `["admin","orders"]` |
 | `useAdminCartsQuery(options)` | `GET /admin/carts` | `Cart[]` (`data.carts`) | `["admin","carts"]` |
 
@@ -51,6 +52,7 @@ All hooks accept React Query options and spread them last (so `staleTime`, `refe
 | `useAdminLoginMutation` | `POST /admin/login` | `{ email, password }` | — |
 | `useAdminRegisterMutation` | `POST /admin/register` | `{ email, username, password }` | — |
 | `useChangePasswordMutation` | `PUT /dunnkayce/change-password` (user) | `{ oldPassword, newPassword }` | — |
+| `useUpdateProfileMutation` | `PUT /dunnkayce/profile` (user) | profile payload (`FormData` for image upload, or JSON with `fullName,email,phone,gender`) | `setQueryData` from `data.user` when present, then invalidates `profile.all` |
 | `useAddToCartMutation` | `POST /cart/add` (user) | `{ foodId, quantity }` | `cart.current`, `admin.carts` |
 | `useUpdateCartQtyMutation` | `PUT /cart/updatecartqty` (user) | `{ cartId, quantity }` | `cart.current`, `admin.carts` |
 | `useRemoveFromCartMutation` | `DELETE /cart/removefromcart/:cartId` (user) | `cartId` (string) | `cart.current`, `admin.carts` |
@@ -60,7 +62,7 @@ All hooks accept React Query options and spread them last (so `staleTime`, `refe
 | `useUpdateFoodMutation` | `PUT /food/:id` (admin) | `{ id, payload }` (`payload` = form object or `FormData`) | `foods.all`, `admin.carts` |
 | `useDeleteFoodMutation` | `DELETE /food/:id` (admin) | `id` (string) | `foods.all`, `admin.carts` |
 | `useToggleRushHourMutation` | `PATCH /settings/rush-hour` (admin) | defaults to `{}`; dashboard sends `{ status: true }` | `setQueryData` from `data.rushHour`, then invalidates `settings.rushHour` |
-| `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` (admin) | `{ id, status }` | `setQueryData` patches matching `_id`, then invalidates `admin.orders` (see caveats) |
+| `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` (admin) | `{ id, status }` | `setQueryData` patches matching `_id`, then invalidates `admin.orders` |
 
 Invalidation uses the shared helper configs `useCartMutationConfig`, `useOrderMutationConfig`, `useFoodMutationConfig`; caller-supplied `onSuccess` runs **after** invalidation. Prefix invalidation means `["orders"]` also refreshes `["orders","user",id]` and `["orders","receipts",id]`.
 
@@ -70,6 +72,8 @@ Invalidation uses the shared helper configs `useCartMutationConfig`, `useOrderMu
 | --- | --- |
 | `queryKeys.auth.all` | `["auth"]` |
 | `queryKeys.auth.adminExists()` | `["auth","admin","exists"]` |
+| `queryKeys.profile.all()` | `["profile"]` |
+| `queryKeys.profile.current()` | `["profile","current"]` |
 | `queryKeys.foods.all()` | `["foods"]` |
 | `queryKeys.cart.all()` | `["cart"]` |
 | `queryKeys.cart.current()` | `["cart","current"]` |
@@ -107,7 +111,6 @@ Invalidation uses the shared helper configs `useCartMutationConfig`, `useOrderMu
 
 ## 6. Known backend gaps / caveats
 
-- **`PUT /orders/:id/status` is commented out in NewDun_BE `Routes/order.routes.js`.** `useUpdateOrderStatusMutation` still fires the request and surfaces the backend **404** as a mutation error; the status `<select>` in `admin-dashboard-order-management.jsx` is still visible.
 - **Signup returns no token.** `signup.jsx` checks `data.token ?? data.accessToken` and `data.user ?? data.admin`; until the backend returns both, no authenticated session is created after signup (the user lands on `/` signed out).
 - **`/admin/dashboard-change-password` has no backend endpoint.** `admin-dashboard-change-password.jsx` is a placeholder form with no submit handler; only the user-facing `/change-password` page is wired.
 - **`PATCH /settings/rush-hour` toggles server-side and ignores the request body.** The dashboard passes `{ status: true }`, but the resulting state comes from the response's `rushHour` — do not treat the sent value as authoritative.

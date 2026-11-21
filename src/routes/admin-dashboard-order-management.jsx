@@ -14,6 +14,16 @@ import {
   X,
 } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -249,7 +259,7 @@ function DetailField({ label, value }) {
   );
 }
 
-function OrderCard({ order, onStatusChange, isUpdating }) {
+function OrderCard({ order, onRequestStatusChange, isUpdating }) {
   const items = getItems(order);
   const visibleItems = items.slice(0, 3);
   const remainingCount = Math.max(items.length - visibleItems.length, 0);
@@ -363,7 +373,7 @@ function OrderCard({ order, onStatusChange, isUpdating }) {
             </label>
             <Select
               value={STATUS_OPTIONS.includes(status) ? status : undefined}
-              onValueChange={(value) => onStatusChange(orderId, value)}
+              onValueChange={(value) => onRequestStatusChange(order, value)}
               disabled={isUpdating || !orderId}
             >
               <SelectTrigger
@@ -443,6 +453,7 @@ function OrderManagementPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [updatingIds, setUpdatingIds] = useState(() => new Set());
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
 
   const allOrders = Array.isArray(data) ? data : [];
 
@@ -514,8 +525,21 @@ function OrderManagementPage() {
     return filtered;
   }, [orders, search, statusFilter, sortBy]);
 
+  const requestStatusChange = (order, nextStatus) => {
+    const orderId = getOrderId(order);
+    const currentStatus = order?.status || "Preparing";
+    if (!orderId || !nextStatus || nextStatus === currentStatus) return;
+    setPendingStatusChange({
+      orderId,
+      nextStatus,
+      currentStatus,
+      customerName: getCustomerName(order),
+      shortId: getShortOrderId(order),
+    });
+  };
+
   const updateStatus = async (id, status) => {
-    if (!id) return;
+    if (!id) return false;
     setUpdatingIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -524,8 +548,10 @@ function OrderManagementPage() {
     try {
       await updateOrderStatus({ id, status });
       toast.success("Status updated");
+      return true;
     } catch {
       toast.error("Failed to update status");
+      return false;
     } finally {
       setUpdatingIds((prev) => {
         const next = new Set(prev);
@@ -533,6 +559,13 @@ function OrderManagementPage() {
         return next;
       });
     }
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return;
+    const { orderId, nextStatus } = pendingStatusChange;
+    const ok = await updateStatus(orderId, nextStatus);
+    if (ok) setPendingStatusChange(null);
   };
 
   const hasActiveFilters = search.trim() || statusFilter !== "all" || sortBy !== "newest";
@@ -731,13 +764,69 @@ function OrderManagementPage() {
                 <OrderCard
                   key={id || `order-${index}`}
                   order={order}
-                  onStatusChange={updateStatus}
+                  onRequestStatusChange={requestStatusChange}
                   isUpdating={id ? updatingIds.has(id) : false}
                 />
               );
             })}
           </section>
         )}
+
+        <AlertDialog
+          open={!!pendingStatusChange}
+          onOpenChange={(open) => {
+            if (!open && !(pendingStatusChange && updatingIds.has(pendingStatusChange.orderId))) {
+              setPendingStatusChange(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm status change</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingStatusChange ? (
+                  <>
+                    Change order{" "}
+                    <span className="font-medium text-foreground">{pendingStatusChange.shortId}</span>
+                    {pendingStatusChange.customerName ? (
+                      <>
+                        {" "}
+                        for{" "}
+                        <span className="font-medium text-foreground">
+                          {pendingStatusChange.customerName}
+                        </span>
+                      </>
+                    ) : null}{" "}
+                    from{" "}
+                    <span className="font-medium text-foreground">{pendingStatusChange.currentStatus}</span>{" "}
+                    to{" "}
+                    <span className="font-medium text-foreground">{pendingStatusChange.nextStatus}</span>?
+                  </>
+                ) : (
+                  "Confirm the fulfillment status update for this order."
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                disabled={pendingStatusChange ? updatingIds.has(pendingStatusChange.orderId) : false}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={pendingStatusChange ? updatingIds.has(pendingStatusChange.orderId) : false}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmStatusChange();
+                }}
+              >
+                {pendingStatusChange && updatingIds.has(pendingStatusChange.orderId)
+                  ? "Updating..."
+                  : "Confirm change"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminShell>
   );

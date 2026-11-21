@@ -91,6 +91,23 @@ export function usePaymentHistoryQuery(userId, options = {}) {
   });
 }
 
+/* --------------------------------- profile -------------------------------- */
+
+export async function fetchProfile() {
+  const data = await api.get("/dunnkayce/profile", { auth: "user" });
+  return data?.user ?? null;
+}
+
+/** `data` is the current user profile, or null. Disabled until a user token exists. */
+export function useProfileQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.profile.current(),
+    queryFn: fetchProfile,
+    enabled: Boolean(getToken("user")),
+    ...options,
+  });
+}
+
 /* ---------------------------------- admin --------------------------------- */
 
 export async function fetchAdminExists() {
@@ -112,6 +129,8 @@ export async function fetchAdminDashboardStats() {
     totalStudents: data?.totalStudents ?? 0,
     totalOrders: data?.totalOrders ?? 0,
     weeklyRevenue: data?.weeklyRevenue ?? 0,
+    paidStudents: data?.paidStudents ?? 0,
+    studentsToDelivery: data?.studentsToDelivery ?? 0,
   };
 }
 

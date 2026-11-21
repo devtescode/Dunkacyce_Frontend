@@ -4,6 +4,10 @@ export const queryKeys = {
     all: () => ["auth"],
     adminExists: () => ["auth", "admin", "exists"],
   },
+  profile: {
+    all: () => ["profile"],
+    current: () => ["profile", "current"],
+  },
   foods: {
     all: () => ["foods"],
   },
