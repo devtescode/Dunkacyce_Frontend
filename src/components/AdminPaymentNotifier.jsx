@@ -42,28 +42,25 @@ function getPaymentKey(payload = {}) {
     null;
   if (primaryKey) return primaryKey;
 
-  // Anonymous payloads: build a stable key from deterministic fields shared by
-  // both events, including the fields used in the toast message.
-  const syntheticFields = [
-    payload.paymentStatus ?? payload.status,
-    payload.amountPaid ?? payload.total,
-    payload.paidAt,
-    payload.hostel || payload?.order?.hostel,
-    payload.room || payload?.order?.room,
-    payload.userId || payload?.user?.id || payload?.user?._id,
-  ];
+  // Anonymous payloads: build the key from invariant payment identity only.
+  // Volatile fields (status, paymentStatus, fulfillmentStatus, itemCount, ...)
+  // differ between the `payment_confirmed` and `payment:received` deliveries
+  // of the same payment, so they must never participate in dedupe.
+  const reference = payload.reference || payload?.order?.reference || null;
+  const identity = {
+    amount: payload.amountPaid ?? payload.total ?? null,
+    paidAt: payload.paidAt || reference || null,
+    hostel: payload.hostel || payload?.order?.hostel || null,
+    room: payload.room || payload?.order?.room || null,
+    userId: payload.userId || payload?.user?.id || payload?.user?._id || null,
+  };
+  const hasIdentity = Object.values(identity).some(
+    (field) => field !== undefined && field !== null && field !== "",
+  );
 
-  if (
-    syntheticFields.some(
-      (field) => field !== undefined && field !== null && field !== "",
-    )
-  ) {
-    return `synthetic:${syntheticFields.map((field) => field ?? "").join("|")}`;
-  }
-
-  // Last resort: fingerprint the whole payload with sorted keys so identical
-  // duplicate payloads still dedupe.
-  return `fingerprint:${stableStringify(payload)}`;
+  // Both prefixes use the same invariant identity object; the labels only
+  // preserve the original distinction between partial and fully empty keys.
+  return `${hasIdentity ? "synthetic" : "fingerprint"}:${stableStringify(identity)}`;
 }
 
 function markPaymentSeen(key) {
@@ -105,11 +102,7 @@ function showBrowserNotification(message) {
 
 export function AdminPaymentNotifier() {
   const queryClient = useQueryClient();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-
-  useEffect(() => {
-    setSoundEnabled(isPaymentSoundEnabled());
-  }, []);
+  const [soundEnabled, setSoundEnabled] = useState(() => isPaymentSoundEnabled());
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;

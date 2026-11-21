@@ -79,6 +79,7 @@ function RootComponent() {
 
   const isLoggedIn = useStore((s) => Boolean(s.currentUserId));
   const isAdmin = pathname?.startsWith("/admin");
+  const hideAuthChrome = pathname === "/login" || pathname === "/signup";
   const isAuthAppRoute = [
     "/user-dashboard",
     "/cart",
@@ -87,15 +88,14 @@ function RootComponent() {
     "/payments",
     "/profile",
     "/change-password",
-    "/login",
   ].includes(pathname);
-  const hideFooter = isAdmin || (isLoggedIn && isAuthAppRoute);
+  const hideFooter = isAdmin || hideAuthChrome || (isLoggedIn && isAuthAppRoute);
 
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col bg-background text-foreground">
-        {!isAdmin && <Navbar />}
+        {!isAdmin && !hideAuthChrome && <Navbar />}
 
           <div className="flex-1">
             {sessionLoaded ? (
