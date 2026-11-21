@@ -22,6 +22,7 @@ import { Route as AdminloginRouteImport } from './routes/adminlogin'
 import { Route as AdminDashboardUsersRouteImport } from './routes/admin-dashboard-users'
 import { Route as AdminDashboardUserAnalyticsRouteImport } from './routes/admin-dashboard-user-analytics'
 import { Route as AdminDashboardSystemSettingsRouteImport } from './routes/admin-dashboard-system-settings'
+import { Route as AdminDashboardSuperadminRouteImport } from './routes/admin-dashboard-superadmin'
 import { Route as AdminDashboardStudentCartRouteImport } from './routes/admin-dashboard-student-cart'
 import { Route as AdminDashboardPaymentTrackingRouteImport } from './routes/admin-dashboard-payment-tracking'
 import { Route as AdminDashboardOrderManagementRouteImport } from './routes/admin-dashboard-order-management'
@@ -29,6 +30,7 @@ import { Route as AdminDashboardImageUploadRouteImport } from './routes/admin-da
 import { Route as AdminDashboardFoodManagementRouteImport } from './routes/admin-dashboard-food-management'
 import { Route as AdminDashboardDeliveryManagementRouteImport } from './routes/admin-dashboard-delivery-management'
 import { Route as AdminDashboardChangePasswordRouteImport } from './routes/admin-dashboard-change-password'
+import { Route as AdminDashboardAdminsRouteImport } from './routes/admin-dashboard-admins'
 import { Route as AdminDashboardRouteImport } from './routes/admin-dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -83,6 +85,11 @@ const AdminloginRoute = AdminloginRouteImport.update({
   path: '/adminlogin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDashboardUsersRoute = AdminDashboardUsersRouteImport.update({
+  id: '/admin-dashboard-users',
+  path: '/admin-dashboard-users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardUserAnalyticsRoute =
   AdminDashboardUserAnalyticsRouteImport.update({
     id: '/admin-dashboard-user-analytics',
@@ -93,6 +100,12 @@ const AdminDashboardSystemSettingsRoute =
   AdminDashboardSystemSettingsRouteImport.update({
     id: '/admin-dashboard-system-settings',
     path: '/admin-dashboard-system-settings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdminDashboardSuperadminRoute =
+  AdminDashboardSuperadminRouteImport.update({
+    id: '/admin-dashboard-superadmin',
+    path: '/admin-dashboard-superadmin',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdminDashboardStudentCartRoute =
@@ -137,9 +150,9 @@ const AdminDashboardChangePasswordRoute =
     path: '/admin-dashboard-change-password',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AdminDashboardUsersRoute = AdminDashboardUsersRouteImport.update({
-  id: '/admin-dashboard-users',
-  path: '/admin-dashboard-users',
+const AdminDashboardAdminsRoute = AdminDashboardAdminsRouteImport.update({
+  id: '/admin-dashboard-admins',
+  path: '/admin-dashboard-admins',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
@@ -162,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/admin-dashboard': typeof AdminDashboardRoute
+  '/admin-dashboard-admins': typeof AdminDashboardAdminsRoute
   '/admin-dashboard-change-password': typeof AdminDashboardChangePasswordRoute
   '/admin-dashboard-delivery-management': typeof AdminDashboardDeliveryManagementRoute
   '/admin-dashboard-food-management': typeof AdminDashboardFoodManagementRoute
@@ -169,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
+  '/admin-dashboard-superadmin': typeof AdminDashboardSuperadminRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/admin-dashboard-users': typeof AdminDashboardUsersRoute
@@ -187,6 +202,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/admin-dashboard': typeof AdminDashboardRoute
+  '/admin-dashboard-admins': typeof AdminDashboardAdminsRoute
   '/admin-dashboard-change-password': typeof AdminDashboardChangePasswordRoute
   '/admin-dashboard-delivery-management': typeof AdminDashboardDeliveryManagementRoute
   '/admin-dashboard-food-management': typeof AdminDashboardFoodManagementRoute
@@ -194,6 +210,7 @@ export interface FileRoutesByTo {
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
+  '/admin-dashboard-superadmin': typeof AdminDashboardSuperadminRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/admin-dashboard-users': typeof AdminDashboardUsersRoute
@@ -213,6 +230,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/admin-dashboard': typeof AdminDashboardRoute
+  '/admin-dashboard-admins': typeof AdminDashboardAdminsRoute
   '/admin-dashboard-change-password': typeof AdminDashboardChangePasswordRoute
   '/admin-dashboard-delivery-management': typeof AdminDashboardDeliveryManagementRoute
   '/admin-dashboard-food-management': typeof AdminDashboardFoodManagementRoute
@@ -220,6 +238,7 @@ export interface FileRoutesById {
   '/admin-dashboard-order-management': typeof AdminDashboardOrderManagementRoute
   '/admin-dashboard-payment-tracking': typeof AdminDashboardPaymentTrackingRoute
   '/admin-dashboard-student-cart': typeof AdminDashboardStudentCartRoute
+  '/admin-dashboard-superadmin': typeof AdminDashboardSuperadminRoute
   '/admin-dashboard-system-settings': typeof AdminDashboardSystemSettingsRoute
   '/admin-dashboard-user-analytics': typeof AdminDashboardUserAnalyticsRoute
   '/admin-dashboard-users': typeof AdminDashboardUsersRoute
@@ -240,6 +259,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/admin-dashboard'
+    | '/admin-dashboard-admins'
     | '/admin-dashboard-change-password'
     | '/admin-dashboard-delivery-management'
     | '/admin-dashboard-food-management'
@@ -247,6 +267,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
     | '/admin-dashboard-student-cart'
+    | '/admin-dashboard-superadmin'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/admin-dashboard-users'
@@ -265,6 +286,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/admin-dashboard'
+    | '/admin-dashboard-admins'
     | '/admin-dashboard-change-password'
     | '/admin-dashboard-delivery-management'
     | '/admin-dashboard-food-management'
@@ -272,6 +294,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
     | '/admin-dashboard-student-cart'
+    | '/admin-dashboard-superadmin'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/admin-dashboard-users'
@@ -290,6 +313,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/admin-dashboard'
+    | '/admin-dashboard-admins'
     | '/admin-dashboard-change-password'
     | '/admin-dashboard-delivery-management'
     | '/admin-dashboard-food-management'
@@ -297,6 +321,7 @@ export interface FileRouteTypes {
     | '/admin-dashboard-order-management'
     | '/admin-dashboard-payment-tracking'
     | '/admin-dashboard-student-cart'
+    | '/admin-dashboard-superadmin'
     | '/admin-dashboard-system-settings'
     | '/admin-dashboard-user-analytics'
     | '/admin-dashboard-users'
@@ -316,6 +341,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminDashboardAdminsRoute: typeof AdminDashboardAdminsRoute
   AdminDashboardChangePasswordRoute: typeof AdminDashboardChangePasswordRoute
   AdminDashboardDeliveryManagementRoute: typeof AdminDashboardDeliveryManagementRoute
   AdminDashboardFoodManagementRoute: typeof AdminDashboardFoodManagementRoute
@@ -323,6 +349,7 @@ export interface RootRouteChildren {
   AdminDashboardOrderManagementRoute: typeof AdminDashboardOrderManagementRoute
   AdminDashboardPaymentTrackingRoute: typeof AdminDashboardPaymentTrackingRoute
   AdminDashboardStudentCartRoute: typeof AdminDashboardStudentCartRoute
+  AdminDashboardSuperadminRoute: typeof AdminDashboardSuperadminRoute
   AdminDashboardSystemSettingsRoute: typeof AdminDashboardSystemSettingsRoute
   AdminDashboardUserAnalyticsRoute: typeof AdminDashboardUserAnalyticsRoute
   AdminDashboardUsersRoute: typeof AdminDashboardUsersRoute
@@ -410,13 +437,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminloginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin-dashboard-user-analytics': {
-      id: '/admin-dashboard-user-analytics'
-      path: '/admin-dashboard-user-analytics'
-      fullPath: '/admin-dashboard-user-analytics'
-      preLoaderRoute: typeof AdminDashboardUserAnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin-dashboard-users': {
       id: '/admin-dashboard-users'
       path: '/admin-dashboard-users'
@@ -424,11 +444,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin-dashboard-user-analytics': {
+      id: '/admin-dashboard-user-analytics'
+      path: '/admin-dashboard-user-analytics'
+      fullPath: '/admin-dashboard-user-analytics'
+      preLoaderRoute: typeof AdminDashboardUserAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin-dashboard-system-settings': {
       id: '/admin-dashboard-system-settings'
       path: '/admin-dashboard-system-settings'
       fullPath: '/admin-dashboard-system-settings'
       preLoaderRoute: typeof AdminDashboardSystemSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-dashboard-superadmin': {
+      id: '/admin-dashboard-superadmin'
+      path: '/admin-dashboard-superadmin'
+      fullPath: '/admin-dashboard-superadmin'
+      preLoaderRoute: typeof AdminDashboardSuperadminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin-dashboard-student-cart': {
@@ -480,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardChangePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin-dashboard-admins': {
+      id: '/admin-dashboard-admins'
+      path: '/admin-dashboard-admins'
+      fullPath: '/admin-dashboard-admins'
+      preLoaderRoute: typeof AdminDashboardAdminsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin-dashboard': {
       id: '/admin-dashboard'
       path: '/admin-dashboard'
@@ -508,6 +549,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminDashboardAdminsRoute: AdminDashboardAdminsRoute,
   AdminDashboardChangePasswordRoute: AdminDashboardChangePasswordRoute,
   AdminDashboardDeliveryManagementRoute: AdminDashboardDeliveryManagementRoute,
   AdminDashboardFoodManagementRoute: AdminDashboardFoodManagementRoute,
@@ -515,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardOrderManagementRoute: AdminDashboardOrderManagementRoute,
   AdminDashboardPaymentTrackingRoute: AdminDashboardPaymentTrackingRoute,
   AdminDashboardStudentCartRoute: AdminDashboardStudentCartRoute,
+  AdminDashboardSuperadminRoute: AdminDashboardSuperadminRoute,
   AdminDashboardSystemSettingsRoute: AdminDashboardSystemSettingsRoute,
   AdminDashboardUserAnalyticsRoute: AdminDashboardUserAnalyticsRoute,
   AdminDashboardUsersRoute: AdminDashboardUsersRoute,
@@ -532,13 +575,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.jsx'
-import type { startInstance } from './start.js'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

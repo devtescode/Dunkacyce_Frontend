@@ -61,80 +61,80 @@
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
   --color-surface: var(--surface);
-  --font-display: "Bebas Neue", system-ui, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
   /* Brand palette — light */
-  --forest: oklch(0.46 0.105 157);
-  --forest-deep: oklch(0.26 0.055 158);
-  --fresh: oklch(0.58 0.14 146);
-  --gold: oklch(0.85 0.13 85);
-  --gold-soft: oklch(0.94 0.06 90);
-  --surface: oklch(1 0 0);
+  --forest: #063d25;
+  --forest-deep: #042918;
+  --fresh: #20a447;
+  --gold: #ffc928;
+  --gold-soft: #fff4cc;
+  --surface: #ffffff;
 
   /* Semantic tokens — light */
-  --background: oklch(0.985 0.008 150);
-  --foreground: oklch(0.24 0.045 158);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.045 158);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.045 158);
-  --primary: oklch(0.46 0.105 157);
-  --primary-foreground: oklch(0.99 0.005 150);
-  --secondary: oklch(0.95 0.025 150);
-  --secondary-foreground: oklch(0.28 0.05 158);
-  --muted: oklch(0.955 0.02 150);
-  --muted-foreground: oklch(0.48 0.035 155);
-  --accent: oklch(0.91 0.085 90);
-  --accent-foreground: oklch(0.25 0.05 158);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.99 0.005 150);
-  --success: oklch(0.52 0.13 145);
-  --success-foreground: oklch(0.99 0.005 150);
-  --warning: oklch(0.85 0.13 85);
-  --warning-foreground: oklch(0.25 0.05 158);
-  --border: oklch(0.91 0.02 150);
-  --input: oklch(0.93 0.018 150);
-  --ring: oklch(0.46 0.105 157);
+  --background: #faf9f6;
+  --foreground: #1f2937;
+  --card: #ffffff;
+  --card-foreground: #1f2937;
+  --popover: #ffffff;
+  --popover-foreground: #1f2937;
+  --primary: #063d25;
+  --primary-foreground: #ffffff;
+  --secondary: #edf7f0;
+  --secondary-foreground: #063d25;
+  --muted: #f3f4f1;
+  --muted-foreground: #5f6b63;
+  --accent: #ffc928;
+  --accent-foreground: #063d25;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #20a447;
+  --success-foreground: #ffffff;
+  --warning: #ffc928;
+  --warning-foreground: #063d25;
+  --border: #e5ebe6;
+  --input: #edf1ed;
+  --ring: #20a447;
 }
 
 .dark {
   /* Brand palette — dark */
-  --forest: oklch(0.52 0.105 158);
-  --forest-deep: oklch(0.18 0.035 158);
-  --fresh: oklch(0.78 0.15 145);
-  --gold: oklch(0.85 0.13 85);
-  --gold-soft: oklch(0.93 0.055 90);
-  --surface: oklch(0.23 0.04 158);
+  --forest: #0b5a38;
+  --forest-deep: #031a11;
+  --fresh: #34c55d;
+  --gold: #ffc928;
+  --gold-soft: #3a3214;
+  --surface: #102018;
 
   /* Semantic tokens — dark */
-  --background: oklch(0.18 0.035 158);
-  --foreground: oklch(0.96 0.01 150);
-  --card: oklch(0.23 0.04 158);
-  --card-foreground: oklch(0.96 0.01 150);
-  --popover: oklch(0.25 0.042 158);
-  --popover-foreground: oklch(0.96 0.01 150);
-  --primary: oklch(0.78 0.15 145);
-  --primary-foreground: oklch(0.18 0.04 158);
-  --secondary: oklch(0.28 0.04 158);
-  --secondary-foreground: oklch(0.95 0.01 150);
-  --muted: oklch(0.27 0.035 158);
-  --muted-foreground: oklch(0.75 0.025 150);
-  --accent: oklch(0.85 0.13 85);
-  --accent-foreground: oklch(0.19 0.04 158);
-  --destructive: oklch(0.68 0.19 25);
-  --destructive-foreground: oklch(0.19 0.035 158);
-  --success: oklch(0.78 0.15 145);
-  --success-foreground: oklch(0.19 0.04 158);
-  --warning: oklch(0.85 0.13 85);
-  --warning-foreground: oklch(0.19 0.04 158);
-  --border: oklch(0.34 0.035 158);
-  --input: oklch(0.37 0.035 158);
-  --ring: oklch(0.78 0.15 145);
+  --background: #0b1711;
+  --foreground: #f4f7f5;
+  --card: #122019;
+  --card-foreground: #f4f7f5;
+  --popover: #14251c;
+  --popover-foreground: #f4f7f5;
+  --primary: #34c55d;
+  --primary-foreground: #062012;
+  --secondary: #183024;
+  --secondary-foreground: #e7f5eb;
+  --muted: #182920;
+  --muted-foreground: #afbeb5;
+  --accent: #ffc928;
+  --accent-foreground: #102018;
+  --destructive: #f87171;
+  --destructive-foreground: #1a0b0b;
+  --success: #34c55d;
+  --success-foreground: #062012;
+  --warning: #ffc928;
+  --warning-foreground: #102018;
+  --border: #244235;
+  --input: #20392e;
+  --ring: #34c55d;
 }
 
 @layer base {
@@ -156,13 +156,14 @@
   }
 
   h1, h2, h3, .display {
-    font-family: var(--font-display);
-    letter-spacing: 0.01em;
+    font-family: var(--font-sans);
+    letter-spacing: -0.03em;
+    font-weight: 700;
   }
 
   ::selection {
-    background-color: var(--color-gold-soft);
-    color: var(--color-forest-deep);
+    background-color: color-mix(in srgb, var(--color-accent) 35%, white);
+    color: var(--color-primary);
   }
 
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {

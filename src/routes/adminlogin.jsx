@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import { AdminPanel, FoodImage, StatusPill, ThemeToggle } from "@/components/admin";
+import { persistAdminSession } from "@/lib/adminSession";
 import { FOOD_HIGHLIGHTS } from "@/lib/foodImages";
 import { cn } from "@/lib/utils";
 import logo from "../assest/elizade_university_ilara_mokin_profile.jpg";
@@ -38,6 +39,7 @@ function AdminAuthPage() {
     email: "",
     username: "",
     password: "",
+    bootstrapKey: "",
   });
 
   const {
@@ -100,11 +102,18 @@ function AdminAuthPage() {
     }
 
     try {
-      await registerMutation.mutateAsync(form);
+      const { bootstrapKey, ...registerDetails } = form;
+      const payload = bootstrapKey?.trim()
+        ? { ...registerDetails, bootstrapKey: bootstrapKey.trim() }
+        : registerDetails;
+      await registerMutation.mutateAsync(payload);
 
+      // The first account created in setup mode is a REGULAR admin. Super Admin
+      // must be activated separately from the Super Admin page using the
+      // server-side activation key — never from client-side setup state.
       toast.success("Admin registered 🎉");
 
-      setForm((current) => ({ ...current, username: "", password: "" }));
+      setForm((current) => ({ ...current, username: "", password: "", bootstrapKey: "" }));
       setFieldErrors({});
       setJustRegistered(true);
       setIsRegistered(true); // switch to login UI
@@ -145,10 +154,14 @@ function AdminAuthPage() {
         return toast.error("Login failed");
       }
 
+      // Prefer the backend-provided role; older responses may only expose it
+      // at the top level.
+      const sessionAdmin =
+        !admin.role && data.role ? { ...admin, role: data.role } : admin;
+
       toast.success("Welcome Admin 🔥");
 
-      sessionStorage.setItem("adminToken", token);
-      sessionStorage.setItem("admin", JSON.stringify(admin));
+      persistAdminSession(token, sessionAdmin);
 
       navigate({ to: "/admin-dashboard", replace: true });
     } catch (err) {
@@ -342,6 +355,29 @@ function AdminAuthPage() {
                       disabled={loading}
                     />
                   </InputShell>
+                </Field>
+
+                <Field label="Bootstrap Key (optional)" htmlFor="admin-bootstrap-key">
+                  <InputShell icon={ShieldCheck} invalid={false}>
+                    <input
+                      id="admin-bootstrap-key"
+                      name="bootstrapKey"
+                      type="text"
+                      autoComplete="off"
+                      className="w-full bg-transparent py-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      placeholder="Server bootstrap key"
+                      value={form.bootstrapKey}
+                      onChange={updateField("bootstrapKey")}
+                      aria-describedby="admin-bootstrap-key-help"
+                      disabled={loading}
+                    />
+                  </InputShell>
+                  <p
+                    id="admin-bootstrap-key-help"
+                    className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                  >
+                    Only needed if the server requires ADMIN_BOOTSTRAP_KEY
+                  </p>
                 </Field>
 
                 <SubmitButton loading={loading} idleLabel="Create Admin" loadingLabel="Creating..." />

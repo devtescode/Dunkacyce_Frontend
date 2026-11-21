@@ -26,9 +26,17 @@ export const queryKeys = {
     orders: () => ["admin", "orders"],
     carts: () => ["admin", "carts"],
     users: () => ["admin", "users"],
+    admins: () => ["admin", "admins"],
   },
   settings: {
     all: () => ["settings"],
     rushHour: () => ["settings", "rush-hour"],
+  },
+  superadmin: {
+    all: () => ["superadmin"],
+    status: () => ["superadmin", "status"],
+    me: () => ["superadmin", "me"],
+    admins: () => ["superadmin", "admins"],
+    activation: () => ["superadmin", "activation"],
   },
 };

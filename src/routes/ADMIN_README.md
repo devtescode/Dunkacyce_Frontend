@@ -1,8 +1,8 @@
 # Admin Portal — Dunnkayce (Swift Campus Feast)
 
-Documentation and audit record for the admin-facing part of the frontend. Last audited **2026-11-21** against the files under `src/routes/admin*.jsx`, `src/components/Admin*.jsx`, and the supporting `src/lib/*` layer.
+Documentation and audit record for the admin-facing part of the frontend. Last audited **2026-11-21** against the files under `src/routes/admin*.jsx`, `src/components/Admin*.jsx`, and the supporting `src/lib/*` layer. Super Admin rollout notes were added the same day.
 
-> **Read this first:** the admin portal currently has **no real authentication boundary on the client**. Every admin URL is a flat, top-level TanStack route and can be opened directly. The only session check in the whole area lives inside `admin-dashboard.jsx`, and it is a `useEffect` that relies on `sessionStorage`. Treat all route guards described here as **UX convenience, not security** — authorization must be enforced by the backend.
+> **Read this first:** the backend now enforces `verifyAdmin` on every admin data endpoint and `verifySuperAdmin` on every admin-management endpoint. Frontend route guards are still **UX convenience, not security** — the server is authoritative for roles, statuses and session revocation. Regular admins get `403` from management endpoints; blocked/inactive admins get `401` and are signed out.
 
 ---
 
@@ -22,12 +22,21 @@ A visual-only pass over the admin surface (deep forest / fresh green / off-white
 
 Intentional behavior/UX changes (visual scope only):
 
-- **Order status stays disabled:** the per-order control renders a permanent "Status updates unavailable — backend endpoint not deployed" hint. `PUT /orders/:id/status` is **still missing in the backend**, so no enabled control calls `useUpdateOrderStatusMutation`. This supersedes the "control is still active" wording in §4.5/F7, but F7 remains open until the endpoint ships.
+- **Order status endpoint:** `PUT /orders/:id/status` now exists in the backend and is guarded by `verifyAdmin`; the earlier "Status updates unavailable — backend endpoint not deployed" hint is obsolete. `useUpdateOrderStatusMutation` calls it with `auth: "admin"`.
 - **Explicit error states:** orders, carts, users, food management and dashboard now render `ErrorState` with the existing `refetch()` instead of falling through to an empty state (the UI side of F8 only). Change-password and all hidden previews remain non-functional previews with `noindex, nofollow` meta, disabled/mock controls and no sidebar links.
 - **Small UI/accessibility changes:** Escape-to-close and `inert` on the closed mobile drawer, dialog focus handling, `noopener,noreferrer` on the support link, `role="status"` / `aria-live` skeletons, `_id ?? id`-style normalization and local image fallbacks. These are presentation/keyboard fixes and **do not close S1–S8**, F1–F6 or F9–F12.
 - **Preserved:** every route path and `createFileRoute` call, all hooks, query keys and API endpoints, toast/filter/sort/form-payload behavior, session writes, and all uncommitted user work (notably the Users page/query/key, socket env change, `client.js` error sanitization and the `disconnectAdminSocket()` logout call). No new backend endpoint was added.
 - **Verification:** `npm.cmd run build` passes (Vite 7; only the pre-existing chunk-size warning).
 - **Reference:** no visual reference image was present in the workspace; the redesign followed the written brief and `DESIGN_SYSTEM.md`.
+
+### 0.1 Multi-admin / Super Admin (implemented 2026-11-21)
+
+- Canonical role is `superadmin` (the frontend also accepts the legacy `super_admin` alias). Exactly one is enforced by a MongoDB unique partial index; regular `admin` accounts can use all dashboard/management features but get `403` from admin-management endpoints. Full contract: `ADMIN_ACCOUNTS.md`; setup steps: `SUPER_ADMIN_SETUP.md`.
+- The first `/admin/register` call is public only while zero admins exist (optional backend `ADMIN_BOOTSTRAP_KEY`) and creates a **regular `admin`**, not a Super Admin. The designated admin logs in and calls `POST /api/superadmin/activate` with the backend-only `SUPER_ADMIN_ACTIVATION_KEY`. Activation keeps the current session valid; the frontend re-persists the returned role and middleware reads the role from the DB on every request.
+- `src/lib/adminSession.js` normalises the backend-provided role and `adminlogin.jsx` persists it with the session. The old behavior that marked the first setup account as `super_admin` in `localStorage` is removed.
+- `AdminNavbar` shows exactly one `superOnly` item — **Super Admin** (`Crown` icon) — to Super Admins only, plus a role pill. `/admin-dashboard-superadmin.jsx` is the dedicated management page with a `beforeLoad` redirect to `/admin-dashboard` for non-Super Admins; `/admin-dashboard-admins` is now a redirect alias.
+- The page lists/creates/activates/deactivates/blocks/unblocks/removes admins through the `useSuperadmin*Query` / `useSuperadmin*Mutation` hooks in `@/lib/api` against the live `/api/superadmin` endpoints (`/admin/admins` aliases also exist). No data is mocked.
+- `vite.config.js` registers `tanstackRouter()`, so `src/routeTree.gen.ts` regenerates on build/dev instead of silently going stale.
 
 ---
 
@@ -59,6 +68,8 @@ All admin routes are **flat children of `__root`** in `src/routeTree.gen.ts` (au
 | `/admin-dashboard-order-management` | `admin-dashboard-order-management.jsx` | Active — paid orders | Yes | `admin/getorders`, `orders/:id/status` |
 | `/admin-dashboard-student-cart` | `admin-dashboard-student-cart.jsx` | Active — read-only carts | Yes | `admin/carts` |
 | `/admin-dashboard-change-password` | `admin-dashboard-change-password.jsx` | **Preview only** — disabled form | Yes | None |
+| `/admin-dashboard-superadmin` | `admin-dashboard-superadmin.jsx` | Active — **Super Admin only** (`beforeLoad` guard) | Yes (Super Admin only) | `/api/superadmin/admins`, `/status`, `/me` |
+| `/admin-dashboard-admins` | `admin-dashboard-admins.jsx` | **Redirect alias** → `/admin-dashboard-superadmin` | No | None |
 | `/admin-dashboard-image-upload` | `admin-dashboard-image-upload.jsx` | **Hidden preview** | Commented out | None |
 | `/admin-dashboard-payment-tracking` | `admin-dashboard-payment-tracking.jsx` | **Hidden preview** | Commented out | None |
 | `/admin-dashboard-user-analytics` | `admin-dashboard-user-analytics.jsx` | **Hidden preview** | Commented out | None |
@@ -93,12 +104,13 @@ Deep links work only because of the Vercel SPA catch-all rewrite in `vercel.json
 
 | Concern | Current behavior |
 | --- | --- |
-| Admin token | `sessionStorage.adminToken`, written in `adminlogin.jsx:111-112` from `data.token ?? data.accessToken ?? ""` |
-| Admin identity | `sessionStorage.admin` — JSON string of `data.admin ?? data.user ?? data` |
+| Admin token | `sessionStorage.adminToken`, written by `persistAdminSession()` in `adminlogin.jsx` from `data.token ?? data.accessToken`. Login now fails if the response has no token (previously `""` was stored as a "valid" session). |
+| Admin identity | `sessionStorage.admin` — JSON string of `data.admin ?? data.user ?? data`; role normalised by `src/lib/adminSession.js` (`role` / `adminRole` / `isSuperAdmin`, etc.) |
 | User session (shared) | `sessionStorage.token` / `sessionStorage.user` + legacy `localStorage.authToken` |
-| API auth header | `client.js:23-30` — `auth: "admin"` reads `sessionStorage.adminToken`; writes use it, **admin GETs currently do not pass it** |
+| API auth header | `client.js:23-30` — `auth: "admin"` reads `sessionStorage.adminToken`; all admin reads and writes pass it as a Bearer token (the old "admin GETs send no header" note is obsolete) |
+| Admin socket | `getAdminSocket()` in `src/lib/socket.js` creates a singleton authenticated with the current `adminToken`; used by order management and `AdminPaymentNotifier` |
 | Expiry / refresh | None. No `exp` decode, no 401 interception, no refresh token |
-| Logout | `AdminNavbar.jsx:86-93`: removes the two admin keys, `store.logout()`, `clearSession()`, `queryClient.clear()`, navigates to `/adminlogin` |
+| Logout | `AdminNavbar.jsx` `handleLogout`: calls `disconnectAdminSocket()`, removes the two admin keys, `store.logout()`, `clearSession()`, `queryClient.clear()`, navigates to `/adminlogin` |
 
 `clearSession()` (`src/lib/session.js:44-50`) also removes `user`/`token` but **not** `localStorage.authToken`, which `src/routes/__root.jsx:56-69` rehydrates on load — so a stale user token can come back after admin logout. Admin logout also clears the student cart (`store.logout()`), i.e. it is a full cross-surface logout.
 
@@ -112,15 +124,15 @@ Reads `adminToken` + `admin`; considers a session valid if both are truthy and `
 ### 4.2 `/adminlogin` — login / first-admin setup
 - `useAdminExistsQuery()` decides mode. No admin → registration form (`username`, `email`, `password`); admin exists → login form (`email`, `password`).
 - On query error it toasts "Network unstable" and, after 800 ms, **forces login mode**, making first-time setup impossible during a transient outage.
-- Success stores token/admin in `sessionStorage` and redirects to `/admin-dashboard`.
+- Success stores token/admin via `persistAdminSession()` (including the backend-provided role) and redirects to `/admin-dashboard`. First-admin setup creates a **regular `admin`** — it is no longer marked `super_admin` locally; activation is a separate step (`SUPER_ADMIN_SETUP.md`).
 - All feedback is via `sonner` toasts; no inline field errors. `noValidate` + non-empty-only checks mean malformed emails/weak passwords go straight to the API.
 - After registration the shared form state is not cleared, so the chosen password is pre-filled into the login form.
-- Missing token produces `""` which is still stored as a "valid" session key, yet `/admin` rejects it — inconsistent.
-- The one-time registration form is public: gate first-admin creation server-side (token/env flag), otherwise anyone who catches the backend with no admin can create one.
+- Missing token now fails login with a toast instead of storing `""` — the old inconsistent-state issue is fixed.
+- The registration form is public only while zero admins exist; the backend also honours the optional `ADMIN_BOOTSTRAP_KEY` during that window. Once an admin exists, `/admin/register` is closed.
 
 ### 4.3 `/admin-dashboard` — overview
 - Hooks: `useAdminDashboardStatsQuery`, `useRushHourQuery`, `useToggleRushHourMutation`.
-- An inline `useEffect` guard redirects to login when the session keys are missing/unparseable; the page shows `DunnkayceLoader` while checking. All three hooks fire **before** the guard, so unauthenticated requests are issued on cold load.
+- An inline `useEffect` guard redirects to login when the session keys are missing/unparseable; the page shows `DunnkayceLoader` while checking. All three hooks fire **before** the guard, so requests without a valid admin token can be issued on cold load (now rejected with `401` by `verifyAdmin`).
 - KPI cards: Students, Orders, Weekly Revenue, and a conditional Avg. Order Value.
   - **Math caveat:** AOV = `weeklyRevenue / totalOrders`, i.e. weekly revenue divided by *all-time* orders. It should use a weekly order count or be relabeled.
   - Values assume numeric fields; a partial response throws on `.toLocaleString()`.
@@ -137,7 +149,7 @@ Reads `adminToken` + `admin`; considers a session valid if both are truthy and `
 - Dialog has no Escape handler/focus trap; delete uses native `confirm()` and stays enabled during mutation. No MIME/size validation on uploads. Validation is toast-only with no inline errors. Images fall back to external `placehold.co`.
 
 ### 4.4a `/admin-dashboard-users` — registered users
-- New `GET /admin/users` endpoint, called with the admin Bearer token (`auth: "admin"` → `Authorization: Bearer <sessionStorage.adminToken>`); unlike the older admin GETs, the backend gates this one with `middleware/adminAuth.js`.
+- `GET /admin/users`, called with the admin Bearer token (`auth: "admin"` → `Authorization: Bearer <sessionStorage.adminToken>`); like every other admin data endpoint, it is gated server-side by `verifyAdmin` in `middleware/adminAuth.js` (agent B5). The old note that only this route was authenticated is obsolete.
 - Response shape: `{ users: [...] }`; each record carries `_id`, `email`, `fullName`, `phone`, `gender`, `balance`, `profilePicture`, `createdAt`, `updatedAt`, plus computed `orderCount` and `totalPaid` (paid orders only, grouped by `userId`). Passwords are excluded via an explicit field whitelist. Missing `users` falls back to `[]`.
 - `useAdminUsersQuery()` (`src/lib/api/queries.js`) wraps the call with cache key `["admin","users"]` (`queryKeys.admin.users()`). Manual refresh only — no polling or socket.
 - UI: summary stats (total users, paid customers, total paid, wallet balance), client-side search by name/email/phone, gender filter and 5 sort modes; responsive table on desktop and stacked cards on mobile; avatar images with initials fallback. Explicit loading, error/retry and empty states.
@@ -146,9 +158,11 @@ Reads `adminToken` + `admin`; considers a session valid if both are truthy and `
 ### 4.5 `/admin-dashboard-order-management` — paid orders
 - `useAdminOrdersQuery()` (`GET /admin/getorders`) and `useUpdateOrderStatusMutation()` (`PUT /orders/:id/status`). UI title is "Paid Orders"; only `paymentStatus === "Paid"` is shown.
 - Search across ID/customer/delivery/payment fields, status filter, 4 sort modes, detail sheet with customer PII, per-order status `<select>` (disabled per-order while updating), manual refresh.
-- **Backend gap:** `PUT /orders/:id/status` is commented out in the backend, so every status change 404s and the optimistic patch rolls back. The control is still active.
-- No socket and no `refetchInterval`; other admins' changes only appear after manual refresh or a local mutation.
-- A failed query renders the "No paid orders yet" empty state because errors are only toasted. Any status can be set at any time (including `Delivered → Preparing`) with no confirmation. No pagination. Full email/phone/room are shown unmasked.
+- **Backend:** `PUT /orders/:id/status` now exists and is guarded by `verifyAdmin`; the earlier "commented out / 404" note is obsolete. `useUpdateOrderStatusMutation` calls it with `auth: "admin"`.
+- **Status-change evidence:** each per-order control must be unlocked before the status can change, and confirmation goes through an `AlertDialog` that shows the order, customer, old → new status, and explains the effect ("Ready" starts the student's arrival countdown; "Delivered" records the exact handoff time). The selected order is disabled while its mutation is pending. The earlier "no confirmation / status updates unavailable" notes are obsolete.
+- **Tracking fields:** the detail sheet and order cards show `readyAt`, `deliveredAt` and an `etaMinutes` arrival estimate (default 8 minutes), normalized through `src/lib/orderTracking.js`. Legacy delivered orders without `deliveredAt` fall back to `updatedAt`.
+- **Realtime:** `getAdminSocket()` subscribes (with cleanup on unmount) to `ORDER_STATUS_EVENTS` (`order_status_updated`, `order_ready`, `order_delivered`) and invalidates `["admin","orders"]`; there is no `refetchInterval`. `AdminPaymentNotifier` (mounted in `AdminShell`) listens for `payment_confirmed` / `payment:received`, shows a deduplicated toast plus an optional browser notification, and invalidates orders and dashboard stats. Carts are not invalidated by these events.
+- A failed query renders the "No paid orders yet" empty state because errors are only toasted. No pagination. Full email/phone/room are shown unmasked.
 
 ### 4.6 `/admin-dashboard-student-cart` — cart monitoring
 - `useAdminCartsQuery()` → `GET /admin/carts`, key `["admin","carts"]`. Manual refresh only — despite "Live Monitoring" copy, there is no polling or socket.
@@ -174,17 +188,26 @@ Other notes: the commented image-upload nav target `"/admin-dashboard/image-uplo
 | `useAdminExistsQuery` | `GET /admin/exists` | none (public) |
 | `useAdminLoginMutation` | `POST /admin/login` | none |
 | `useAdminRegisterMutation` | `POST /admin/register` | none |
-| `useAdminDashboardStatsQuery` | `GET /admin/dashboard-stats` | **none — should be `auth: "admin"`** |
-| `useAdminOrdersQuery` | `GET /admin/getorders` | **none** |
-| `useAdminCartsQuery` | `GET /admin/carts` | **none** |
-| `useAdminUsersQuery` | `GET /admin/users` | `auth: "admin"` (Bearer; backend `middleware/adminAuth.js`) |
+| `useAdminDashboardStatsQuery` | `GET /admin/dashboard-stats` | `auth: "admin"` (backend `verifyAdmin`) |
+| `useAdminOrdersQuery` | `GET /admin/getorders` | `auth: "admin"` (backend `verifyAdmin`) |
+| `useAdminCartsQuery` | `GET /admin/carts` | `auth: "admin"` (backend `verifyAdmin`) |
+| `useAdminUsersQuery` | `GET /admin/users` | `auth: "admin"` (Bearer; backend `verifyAdmin`) |
+| `useSuperadminStatusQuery` | `GET /api/superadmin/status` | none (public) |
+| `useSuperadminMeQuery` | `GET /api/superadmin/me` | `auth: "admin"` (any active admin) |
+| `useSuperadminAdminsQuery` | `GET /api/superadmin/admins` | `auth: "admin"` (`verifySuperAdmin`; 403 for regular admins) |
 | `useFoodsQuery` | `GET /food` | none (public read) |
 | `useRushHourQuery` | `GET /settings/rush-hour` | none |
 | Food create/update/delete | `POST/PUT/DELETE /food` | `auth: "admin"` |
 | `useToggleRushHourMutation` | `PATCH /settings/rush-hour` | `auth: "admin"` |
-| `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` | `auth: "admin"` (backend route missing) |
+| `useUpdateOrderStatusMutation` | `PUT /orders/:id/status` | `auth: "admin"` (backend route exists) |
+| `useActivateSuperadminMutation` | `POST /api/superadmin/activate` | `auth: "admin"`; body `{ activationKey }` |
+| `useCreateSuperadminAdminMutation` | `POST /api/superadmin/admins` | `auth: "admin"` (`verifySuperAdmin`) |
+| `useSetSuperadminAdminStatusMutation` | `PATCH /api/superadmin/admins/:id/status` | `auth: "admin"` (`verifySuperAdmin`) |
+| `useBlockSuperadminAdminMutation` | `PATCH /api/superadmin/admins/:id/block` | `auth: "admin"` (`verifySuperAdmin`) |
+| `useUnblockSuperadminAdminMutation` | `PATCH /api/superadmin/admins/:id/unblock` | `auth: "admin"` (`verifySuperAdmin`) |
+| `useRemoveSuperadminAdminMutation` | `DELETE /api/superadmin/admins/:id` | `auth: "admin"` (`verifySuperAdmin`) |
 
-Cache keys: `["auth","admin","exists"]`, `["admin","dashboard-stats"]`, `["admin","orders"]`, `["admin","carts"]`, `["admin","users"]`, `["foods"]`, `["settings","rush-hour"]`. `queryKeys.admin.all()` exists but is unused. Checkout/payment mutations invalidate `admin.carts` and `admin.dashboardStats` **but not `admin.orders`**, so the admin order list can stay stale.
+Cache keys: `["auth","admin","exists"]`, `["admin","dashboard-stats"]`, `["admin","orders"]`, `["admin","carts"]`, `["admin","users"]`, `["foods"]`, `["settings","rush-hour"]`, plus `queryKeys.superadmin` (`["superadmin"]`, `["superadmin","status"]`, `["superadmin","me"]`, `["superadmin","admins"]`, `["superadmin","activation"]`). Checkout/payment mutations invalidate `admin.carts` and `admin.dashboardStats` **but not `admin.orders`**, so the admin order list can stay stale. Socket events now invalidate `admin.orders` (and `admin.dashboardStats` on payment events), which partly mitigates the stale-order-list issue for live sessions.
 
 `src/lib/store.js` is a legacy localStorage mock layer (`dunnkayce_state_v3`) with **plaintext demo credentials** (`admin@dunnkayce.com` / `admin123`), a client-side `login()` comparison, and local-only food/order mutations. Do not treat it as an authority for admin auth or data; remove demo credentials from production bundles. See `src/lib/api/README.md` for the full query/mutation reference.
 
@@ -200,14 +223,14 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 | --- | --- | --- | --- |
 | S1 | `adminlogin.jsx:111-112`, `admin.jsx:13-29`, `admin-dashboard.jsx:52-66`, `__root.jsx:56-69` | Admin JWT and identity in `sessionStorage`, readable by any XSS; all guards are client-side | Move to `HttpOnly; Secure; SameSite` cookies (or in-memory + refresh); enforce role server-side |
 | S2 | `router.jsx:16-21`, `routeTree.gen.ts:80-148` | No route guard on any of the 12 admin URLs | Add a shared guarded admin layout (`beforeLoad` → `redirect('/adminlogin')`) and nest routes under it |
-| S3 | `queries.js:109-150` | Admin GETs send no `Authorization` header; they work only because backend admin routes are unauthenticated | Pass `auth: "admin"` and gate on token presence; secure the backend |
-| S4 | `adminlogin.jsx:34,65-86` | Public first-admin self-registration | Gate with a one-time setup token/env flag |
+| S3 | `queries.js` admin reads | **Closed:** admin GETs pass `auth: "admin"` and every admin data route is gated by backend `verifyAdmin` (agent B5) | — |
+| S4 | `adminlogin.jsx` | **Mitigated:** registration is public only while zero admins exist and is optionally gated by backend `ADMIN_BOOTSTRAP_KEY`; it creates a regular `admin` | Activate the designated admin with `SUPER_ADMIN_ACTIVATION_KEY` |
 | S5 | `store.js:1,39-42,124,133,137,162` | Plaintext passwords and seeded admin credentials in shipped client code | Remove demo creds; never persist passwords locally |
 | S6 | `AdminNavbar.jsx:87-91`, `session.js:44-50` | Logout leaves `localStorage.authToken` (rehydrated by root) and logs out the student side too | Consolidate one logout that clears all keys + cache; split admin-only from full logout |
 | S7 | `AdminNavbar.jsx:236-252`, `food-management.jsx:457-468` | Dialogs lack focus trap/Escape; closed mobile drawer remains tab-focusable | Add focus management, `inert`/conditional mount, keyboard dismissal |
 | S8 | `client.js:85-103` | Network/CORS failures throw raw `TypeError`, not `ApiError`; raw server payloads are retained | Wrap `fetch`, sanitize error messages |
 
-**Auth boundary note:** `GET /admin/users` is the exception — it is admin-authenticated on the backend via `middleware/adminAuth.js` and sends `auth: "admin"` from the client. The older admin endpoints (`/admin/dashboard-stats`, `/admin/getorders`, `/admin/carts`, …) remain unauthenticated and still send no header (S3). Do not assume the admin API is uniformly gated.
+**Auth boundary note:** all admin routes are now gated on the backend by `verifyAdmin` in `middleware/adminAuth.js` (including `/admin/dashboard-stats`, `/admin/users`, `/admin/carts`, `/admin/getorders`, food writes, `PATCH /settings/rush-hour` and `PUT /orders/:id/status`), and the client sends `auth: "admin"`. Admin-management routes additionally require `verifySuperAdmin`: regular admins get `403`, while blocked/inactive admins get `401` and are signed out. The old claim that only `/admin/users` was authenticated is obsolete.
 
 ### P1 — functional
 
@@ -219,7 +242,7 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 | F4 | `admin-dashboard.jsx:89-96,247-255` | Rush-hour toggle can use stale `intended` value; retry buttons spammable | Include `isFetching` in busy state; disable retry while refetching |
 | F5 | `food-management.jsx:270,332,439` | Only `_id` used; backend may return `id` → broken keys/edit/delete | Normalize `_id ?? id` once at the boundary |
 | F6 | `food-management.jsx:420-435,443` | FormData branch drops `imageUrl`; `data.food` dereferenced unsafely | Include `imageUrl` in FormData; access `data?.food` defensively |
-| F7 | `order-management.jsx:46,364-383,525` | Status changes 404 because backend endpoint is commented out | Disable control until endpoint exists |
+| F7 | `order-management.jsx` | **Closed on backend:** `PUT /orders/:id/status` now exists and is guarded by `verifyAdmin` | — |
 | F8 | `order-management.jsx:439,453-455`, `student-cart.jsx:41-43,165-170` | Query failures render the empty state | Add explicit error branches with retry |
 | F9 | `student-cart.jsx:47-48,62-64` | Malformed carts crash/sum wrong; "last updated" uses `createdAt` | Normalize fields; use a real update timestamp |
 | F10 | `mutations.js:111-148` | Checkout does not invalidate `admin.orders` | Add `queryKeys.admin.orders()` to invalidation |
@@ -228,13 +251,13 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 
 ### P2 — quality / UX / accessibility
 
-- **No `noindex`** on hidden preview pages; they render admin chrome with no active nav item.
-- **Dark mode is non-functional:** `dark:` utilities are used widely, but no `.dark` token block, toggle, or `prefers-color-scheme` rule exists (`styles.css:27,61-86`).
+- **Addressed:** hidden preview pages now carry `noindex, nofollow` meta and are absent from the sidebar (§0).
+- **Addressed:** light/dark/system theme works via `ThemeProvider`, a `.dark` token block and a pre-paint script (§0). The old "dark mode non-functional" finding is obsolete.
 - **Contrast:** `--primary` on near-white is ≈3:1, below WCAG AA 4.5:1 (`styles.css:69-70`); affects primary buttons and active nav tiles.
-- **Skeletons** are `aria-hidden` with no `role="status"`/`aria-live`; screen readers get no loading feedback.
-- **Realtime copy is misleading:** socket.io is used only by `user-dashboard.jsx`; admin "live" pages are refetch-based. Socket URL is hardcoded (`socket.js:3`), connects at module load, polling-first, never torn down.
+- **Addressed:** loading skeletons now use `role="status"` / `aria-live` (§0); older audit wording about `aria-hidden`-only skeletons is obsolete.
+- **Realtime is now wired into the admin surface:** order management invalidates `["admin","orders"]` on `order_status_updated` / `order_ready` / `order_delivered`, and `AdminPaymentNotifier` handles `payment_confirmed` / `payment:received` (toast, optional browser notification, invalidate orders + dashboard stats). These use the authenticated `getAdminSocket()` singleton and remove listeners on unmount; logout calls `disconnectAdminSocket()`. The legacy default `socket` export still connects at module load (polling-first) using `VITE_SOCKET_URL` / `VITE_API_URL` with a fallback, and is never torn down; student cart/users pages remain manual-refresh only. Copy claiming socket.io is used *only* by `user-dashboard.jsx` is obsolete.
 - **Hardcoded placeholders:** WhatsApp `2348000000000` (`AdminNavbar.jsx:96`, also `Navbar.jsx:54`), `admin@dunnkayce.com` (`adminlogin.jsx:274,338`), `placehold.co` fallbacks, prod backend/socket URLs. `window.open(..., "_blank")` lacks `noopener,noreferrer`.
-- **Config drift:** `routeTree.gen.ts:515-523` declares SSR (`ssr: true`, `start.js`) but `vite.config.js` has no Start plugin and `main.tsx` is pure client — effective runtime is SPA. The TanStack Router Vite plugin is also absent, so route files will not regenerate `routeTree.gen.ts` automatically.
+- **Config drift:** `routeTree.gen.ts` declares SSR (`ssr: true`, `start.js`) but `vite.config.js` has no Start plugin and `main.tsx` is pure client — effective runtime is SPA. The TanStack Router Vite plugin **is** registered now, so route files regenerate `routeTree.gen.ts` on dev/build.
 - **Misc dead code:** `mounted` state (`AdminNavbar.jsx:30`), dead `onSubmit` in the change-password preview, unused `DunnkayceLoader` import (`student-cart.jsx:3`), unused `Link`/`useRouter` in `__root.jsx`, stale "No backend" header in `store.js`, themed `Toaster` wrapper in `ui/sonner.jsx` unused (root mounts stock Sonner with `richColors`).
 - **No security headers** in `vercel.json` (CSP, `X-Content-Type-Options`, `Referrer-Policy`); SPA catch-all can return HTML for missing assets.
 - **No route-level `errorComponent`** anywhere in the admin area.
@@ -243,10 +266,10 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 
 ## 7. Backend gaps to expect in the UI
 
-1. `PUT /orders/:id/status` is commented out — order status changes 404 (API README §6).
+1. **Closed:** `PUT /orders/:id/status` now exists and is admin-guarded; the old "commented out / 404" note is obsolete. The UI displays the backend's `readyAt` / `deliveredAt` / `etaMinutes` as fulfillment evidence (with an `updatedAt` fallback for legacy delivered orders).
 2. `PATCH /settings/rush-hour` **toggles** server-side and ignores the request body; trust the response's `rushHour`, not the sent value.
 3. `/admin/dashboard-change-password` has no endpoint.
-4. Older admin data routes (`/admin/dashboard-stats`, `/admin/getorders`, `/admin/carts`) remain unauthenticated; the new `GET /admin/users` is gated by `middleware/adminAuth.js`.
+4. **Closed:** all admin data routes (`/admin/dashboard-stats`, `/admin/getorders`, `/admin/carts`, `/admin/users`, food writes, rush hour, order status) are gated by `verifyAdmin`; the Super Admin API is live under `/api/superadmin` with `/admin/admins` aliases. See `ADMIN_ACCOUNTS.md`.
 5. Signup (user-facing) returns no token.
 
 ---
@@ -257,7 +280,7 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 2. Add an entry to `adminNavItems` (`AdminNavbar.jsx:9-21`) **and import its icon at line 3**.
 3. Add query keys in `src/lib/api/keys.js`, hooks in `queries.js`/`mutations.js`, and import from `@/lib/api` — never hardcode keys or `fetch` in the route.
 4. Add a `beforeLoad` guard (or nest under a future guarded admin layout) and add an `errorComponent`.
-5. Regenerate `routeTree.gen.ts` (`tsr generate` / router plugin — currently not wired into Vite).
+5. `routeTree.gen.ts` regenerates automatically via the TanStack Router Vite plugin; do not hand-edit it.
 6. Give loading states `role="status"` + `aria-live`, mark decorative icons `aria-hidden`, and add `noindex` while the page is a preview.
 7. Re-run the audit checklist in §6 before enabling real data, especially S1–S3 and F1.
 
@@ -265,6 +288,8 @@ Status key: **P0** = security/data-integrity blocker, **P1** = functional bug, *
 
 ## 9. Related docs
 
+- `ADMIN_ACCOUNTS.md` — Super Admin role model, endpoint table and testing checklist.
+- `SUPER_ADMIN_SETUP.md` — production activation walkthrough and troubleshooting.
 - `src/routes/README.md` — file-based routing conventions.
 - `src/lib/api/README.md` — full query/mutation/key reference and backend caveats.
 - `DESIGN_SYSTEM.md` — 2026 visual redesign contract (tokens, theme, shared kit and page rules).

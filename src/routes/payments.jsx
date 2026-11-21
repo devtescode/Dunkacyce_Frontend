@@ -1,232 +1,203 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { CreditCard, Receipt, X } from "lucide-react";
 import { getSessionUser } from "@/lib/session";
 import { usePaymentHistoryQuery } from "@/lib/api";
 import { formatNGN } from "@/lib/store";
 import { DunnkayceLoader } from "@/components/DunnkayceLoader";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/payments")({
-    head: () => ({ meta: [{ title: "Payment History — Dunnkayce" }] }),
-    component: PaymentsPage,
+  head: () => ({ meta: [{ title: "Payments — DUNNKAYCE" }] }),
+  component: PaymentsPage,
 });
 
 function PaymentsPage() {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(() => getSessionUser());
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const paymentsQuery = usePaymentHistoryQuery(user?.id);
+  const orders = paymentsQuery.data ?? [];
 
-    const [user, setUser] = useState(() => getSessionUser());
-    const [selectedOrder, setSelectedOrder] = useState(null);
-
-    // ----------------------------
-    // AUTH CHECK (FIXED)
-    // ----------------------------
-    useEffect(() => {
-        const sessionUser = getSessionUser();
-
-        if (!sessionUser) {
-            navigate({ to: "/login" });
-            return;
-        }
-
-        setUser(sessionUser);
-    }, [navigate]);
-
-    // ----------------------------
-    // FETCH RECEIPTS
-    // ----------------------------
-    const { data, isPending } = usePaymentHistoryQuery(user?.id);
-
-    const orders = data ?? [];
-    const loading = isPending;
-
-    if (!user) return null;
-
-    if (loading) {
-        return (
-            <main className="mx-auto w-full max-w-6xl px-4 py-10">
-                <DunnkayceLoader variant="page" label="Fetching your payments" caption="Tallying up every successful transaction." />
-            </main>
-        );
+  useEffect(() => {
+    const sessionUser = getSessionUser();
+    if (!sessionUser) {
+      navigate({ to: "/login", replace: true });
+      return;
     }
+    setUser(sessionUser);
+  }, [navigate]);
 
-    // ----------------------------
-    // STATUS COLORS
-    // ----------------------------
-    const color = (status) => {
-        if (status === "Paid") return "bg-green-100 text-green-700";
-        if (status === "Pending") return "bg-yellow-100 text-yellow-700";
-        return "bg-red-100 text-red-700";
+  useEffect(() => {
+    if (!selectedOrder) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setSelectedOrder(null);
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedOrder]);
 
-    // ----------------------------
-    // UI
-    // ----------------------------
-    return (
-        <main className="mx-auto max-w-4xl px-4 py-8">
-            <h1 className="text-3xl font-bold mb-6">
-                Payment History
-            </h1>
+  if (!user) return null;
 
-            {/* EMPTY STATE */}
-            {!loading && orders.length === 0 && (
-                <div className="text-center py-10 text-gray-500 border rounded-xl bg-white">
-                    No successful payments yet.
-                </div>
-            )}
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-success">Payments</p>
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-foreground">Payment history</h1>
+        <p className="mt-2 text-sm text-muted-foreground">View your transactions and open receipts.</p>
+      </div>
 
-            {/* LIST */}
-            <div className="space-y-3">
-                {orders.map((o) => (
-                    <div
-                        key={o._id}
-                        onClick={() => setSelectedOrder(o)}
-                        className="border rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition cursor-pointer"
-                    >
-                        {/* HEADER */}
-                        <div className="flex justify-between">
-                            <div>
-                                <p className="font-semibold">
-                                    #{o._id.slice(-6).toUpperCase()}
-                                </p>
-
-                                <p className="text-sm text-gray-500">
-                                    {o.hostel} · Room {o.room}
-                                </p>
-
-                                <p className="text-xs text-gray-400">
-                                    {new Date(o.createdAt).toLocaleString()}
-                                </p>
-                            </div>
-
-                            <p className="font-bold text-green-600">
-                                {formatNGN(o.total)}
-                            </p>
-                        </div>
-
-                        {/* STATUS */}
-                        <div className="mt-2 flex justify-between items-center">
-                            <span
-                                className={`text-xs px-2 py-1 rounded-full ${color(
-                                    o.paymentStatus
-                                )}`}
-                            >
-                                {o.paymentStatus}
-                            </span>
-
-                            <span className="text-xs text-gray-500">
-                                {o.paymentMethod}
-                            </span>
-                        </div>
+      {paymentsQuery.isPending ? (
+        <div className="rounded-3xl border border-border bg-card p-8">
+          <DunnkayceLoader variant="compact" label="Loading payments" caption="Fetching your payment history." />
+        </div>
+      ) : paymentsQuery.isError ? (
+        <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-8 text-center">
+          <p className="text-lg font-bold">Could not load payments</p>
+          <p className="mt-2 text-sm text-muted-foreground">Please try again.</p>
+          <button onClick={() => paymentsQuery.refetch()} className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Retry</button>
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-border bg-card px-6 py-16 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">
+            <CreditCard className="h-10 w-10" />
+          </div>
+          <h2 className="mt-6 text-3xl font-black tracking-tight">No payments yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Your successful payment receipts will appear here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order) => (
+            <button
+              key={order._id}
+              type="button"
+              onClick={() => setSelectedOrder(order)}
+              className="w-full rounded-[2rem] border border-border bg-card p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-6"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-primary">
+                      <Receipt className="h-5 w-5" />
                     </div>
-                ))}
+                    <div>
+                      <p className="font-bold text-foreground">#{String(order._id || "").slice(-6).toUpperCase()}</p>
+                      <p className="text-sm text-muted-foreground">{order.hostel} · Room {order.room}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+                </div>
+                <div className="sm:text-right">
+                  <p className="text-2xl font-black text-primary">{formatNGN(Number(order.total || 0))}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 sm:justify-end">
+                    <StatusBadge status={order.paymentStatus} />
+                    <span className="text-xs text-muted-foreground">{order.paymentMethod || "—"}</span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedOrder && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedOrder(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Payment receipt"
+            className="relative w-full max-w-md rounded-[2rem] bg-card p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedOrder(null)}
+              className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              aria-label="Close receipt"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <Receipt className="h-7 w-7" />
+              </div>
+              <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-success">Transaction Receipt</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight">Payment details</h2>
             </div>
 
-            {/* ----------------------------
-          RECEIPT MODAL (OPAY STYLE READY)
-      ---------------------------- */}
-            {selectedOrder && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white w-full max-w-md rounded-2xl p-6 relative overflow-hidden">
+            <div className="mt-6 space-y-3 text-sm">
+              <Row label="Order ID" value={`#${String(selectedOrder._id || "").slice(-6).toUpperCase()}`} mono />
+              <Row label="Date" value={formatDate(selectedOrder.createdAt)} />
+              <Row label="Payment method" value={selectedOrder.paymentMethod || "—"} />
+              <Row label="Status" value={selectedOrder.paymentStatus || "—"} valueClass={selectedOrder.paymentStatus === "Paid" ? "text-emerald-700 font-semibold" : ""} />
+            </div>
 
-                        {/* WATERMARK */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <p className="text-5xl font-black text-gray-100 rotate-[-25deg]">
-                                DUNNKAYCE
-                            </p>
-                        </div>
+            <div className="mt-5 border-t border-border pt-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Items purchased</p>
+              <div className="mt-3 space-y-2">
+                {(selectedOrder.items || []).map((item, idx) => (
+                  <div key={idx} className="flex items-start justify-between gap-4 text-sm">
+                    <span className="text-muted-foreground">
+                      <span className="font-medium text-foreground">{item.qty}× {item.name}</span>
+                      {item.soupType ? ` (${item.soupType})` : ""}
+                    </span>
+                    <span className="font-semibold">{formatNGN(Number(item.price || 0) * Number(item.qty || 0))}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                        {/* CLOSE */}
-                        <button
-                            onClick={() => setSelectedOrder(null)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-black"
-                        >
-                            ✕
-                        </button>
+            <div className="mt-5 flex items-center justify-between border-t border-border pt-5">
+              <span className="font-semibold">Total</span>
+              <span className="text-2xl font-black text-primary">{formatNGN(Number(selectedOrder.total || 0))}</span>
+            </div>
 
-                        {/* TITLE */}
-                        <div className="text-center mb-6">
-                            <p className="text-green-600 font-bold">
-                                ✓ PAYMENT SUCCESSFUL
-                            </p>
-                            <p className="text-xs text-gray-400">
-                                Transaction Receipt
-                            </p>
-                        </div>
+            <button
+              onClick={() => setSelectedOrder(null)}
+              className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground hover:bg-primary/92"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
 
-                        {/* DETAILS */}
-                        {/* DETAILS */}
-                        <div className="space-y-3 text-sm relative z-10">
+function Row({ label, value, mono = false, valueClass = "" }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("text-right text-foreground", mono && "font-mono text-xs sm:text-sm", valueClass)}>{value}</span>
+    </div>
+  );
+}
 
-                            <div className="flex justify-between">
-                                <span>Order ID</span>
-                                <span className="font-mono">
-                                    #{selectedOrder._id.slice(-6).toUpperCase()}
-                                </span>
-                            </div>
+function StatusBadge({ status }) {
+  const styles =
+    status === "Paid"
+      ? "bg-emerald-100 text-emerald-700"
+      : status === "Pending"
+        ? "bg-amber-100 text-amber-700"
+        : "bg-red-100 text-red-700";
+  return <span className={cn("rounded-full px-3 py-1 text-xs font-bold", styles)}>{status || "—"}</span>;
+}
 
-                            <div className="flex justify-between">
-                                <span>Date</span>
-                                <span>
-                                    {new Date(selectedOrder.createdAt).toLocaleString()}
-                                </span>
-                            </div>
-
-                            <div className="flex justify-between">
-                                <span>Payment Method</span>
-                                <span>{selectedOrder.paymentMethod}</span>
-                            </div>
-
-                            <div className="flex justify-between">
-                                <span>Status</span>
-                                <span className="font-semibold text-green-600">
-                                    {selectedOrder.paymentStatus}
-                                </span>
-                            </div>
-
-                            <hr />
-
-                            {/* 🧾 ITEMS SECTION (NEW) */}
-                            <div className="space-y-2">
-                                <p className="font-semibold text-xs text-gray-500">
-                                    ITEMS PURCHASED
-                                </p>
-
-                                {selectedOrder.items?.map((item, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex justify-between text-sm border-b pb-1"
-                                    >
-                                        <span>
-                                            {item.qty}× {item.name}
-                                            {item.soupType ? ` (${item.soupType})` : ""}
-                                        </span>
-
-                                        <span>
-                                            {formatNGN(item.price * item.qty)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <hr />
-
-                            {/* TOTAL */}
-                            <div className="flex justify-between font-bold text-lg">
-                                <span>Total</span>
-                                <span>{formatNGN(selectedOrder.total)}</span>
-                            </div>
-                        </div>
-                        {/* CLOSE BUTTON */}
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={() => setSelectedOrder(null)}
-                                className="px-4 bg-black text-white py-2 rounded-lg relative z-10"
-                            >
-                                 Close <span className="ml-1">✕</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </main>
-    );
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }

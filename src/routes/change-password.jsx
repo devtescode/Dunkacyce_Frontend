@@ -1,40 +1,26 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { KeyRound, Lock } from "lucide-react";
+import { toast } from "sonner";
 import { getSessionUser } from "@/lib/session";
 import { useChangePasswordMutation, ApiError } from "@/lib/api";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/change-password")({
-  head: () => ({
-    meta: [{ title: "Change Password — Dunnkayce" }],
-  }),
+  head: () => ({ meta: [{ title: "Change Password — DUNNKAYCE" }] }),
   component: ChangePasswordPage,
 });
 
 function ChangePasswordPage() {
   const navigate = useNavigate();
-
   const [user, setUser] = useState(() => getSessionUser());
-
   const changePassword = useChangePasswordMutation();
-  const loading = changePassword.isPending;
-
-  const [f, setF] = useState({
-    old: "",
-    next: "",
-    confirm: "",
-  });
+  const [form, setForm] = useState({ old: "", next: "", confirm: "" });
 
   useEffect(() => {
     if (!user) {
       const sessionUser = getSessionUser();
-
-      if (sessionUser) {
-        setUser(sessionUser);
-        return;
-      }
-
-      navigate({ to: "/login" });
+      if (sessionUser) setUser(sessionUser);
+      else navigate({ to: "/login", replace: true });
     }
   }, [user, navigate]);
 
@@ -42,36 +28,18 @@ function ChangePasswordPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-
-    if (!f.old.trim()) {
-      return toast.error("Current password is required");
-    }
-
-    if (f.next.length < 6) {
-      return toast.error(
-        "New password must be at least 6 characters"
-      );
-    }
-
-    if (f.next !== f.confirm) {
-      return toast.error("Passwords do not match");
-    }
+    if (!form.old.trim()) return toast.error("Current password is required");
+    if (form.next.length < 6) return toast.error("New password must be at least 6 characters");
+    if (form.next !== form.confirm) return toast.error("Passwords do not match");
+    if (form.old === form.next) return toast.error("New password must be different from current password");
 
     try {
       const data = await changePassword.mutateAsync({
-        oldPassword: f.old,
-        newPassword: f.next,
+        oldPassword: form.old,
+        newPassword: form.next,
       });
-
-      toast.success(
-        data.message || "Password updated successfully"
-      );
-
-      setF({
-        old: "",
-        next: "",
-        confirm: "",
-      });
+      toast.success(data?.message || "Password updated successfully");
+      setForm({ old: "", next: "", confirm: "" });
     } catch (err) {
       const message =
         (err instanceof ApiError && err.payload?.message) ||
@@ -82,82 +50,77 @@ function ChangePasswordPage() {
   };
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
-      <h1 className="font-display mb-4 text-4xl">
-        Change Password
-      </h1>
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-success">Security</p>
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-foreground">Change password</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Keep your account secure with a strong password.</p>
+      </div>
 
-      <form
-        onSubmit={submit}
-        className="space-y-4 rounded-sm border bg-card p-6"
-      >
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Current Password
-          </span>
+      <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="mb-6 flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-primary">
+            <KeyRound className="h-7 w-7" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Update your password</h2>
+            <p className="text-sm text-muted-foreground">Use at least 6 characters.</p>
+          </div>
+        </div>
 
-          <input
-            type="password"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={f.old}
-            onChange={(e) =>
-              setF({
-                ...f,
-                old: e.target.value,
-              })
-            }
+        <form onSubmit={submit} className="space-y-5">
+          <PasswordField
+            id="current-password"
+            label="Current password"
+            autoComplete="current-password"
+            value={form.old}
+            onChange={(e) => setForm({ ...form, old: e.target.value })}
             placeholder="Enter current password"
           />
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            New Password
-          </span>
-
-          <input
-            type="password"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={f.next}
-            onChange={(e) =>
-              setF({
-                ...f,
-                next: e.target.value,
-              })
-            }
+          <PasswordField
+            id="new-password"
+            label="New password"
+            autoComplete="new-password"
+            value={form.next}
+            onChange={(e) => setForm({ ...form, next: e.target.value })}
             placeholder="Enter new password"
           />
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Confirm New Password
-          </span>
-
-          <input
-            type="password"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={f.confirm}
-            onChange={(e) =>
-              setF({
-                ...f,
-                confirm: e.target.value,
-              })
-            }
+          <PasswordField
+            id="confirm-password"
+            label="Confirm new password"
+            autoComplete="new-password"
+            value={form.confirm}
+            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
             placeholder="Confirm new password"
           />
-        </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className=" rounded-sm bg-primary py-2.5 px-2.5 font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? "Updating..." : "Update Password"}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={changePassword.isPending}
+            className="inline-flex h-12 items-center justify-center rounded-2xl bg-primary px-8 text-sm font-bold text-primary-foreground transition hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {changePassword.isPending ? "Updating..." : "Update password"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
 
-export default ChangePasswordPage;
+function PasswordField({ id, label, ...props }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-sm font-semibold text-foreground">{label}</label>
+      <div className="relative">
+        <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          id={id}
+          type="password"
+          className="h-12 w-full rounded-xl border border-input bg-background pl-11 pr-4 text-sm outline-none transition focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+          required
+          {...props}
+        />
+      </div>
+    </div>
+  );
+}

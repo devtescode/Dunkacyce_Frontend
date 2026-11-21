@@ -1,9 +1,7 @@
 import {
   Outlet,
-  Link,
   createRootRouteWithContext,
   useRouterState,
-  useRouter,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -11,9 +9,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import appCss from "../styles.css?url";
-import { store } from "@/lib/store";
+import { store, useStore } from "@/lib/store";
 import { getSessionToken, setSessionToken } from "@/lib/session";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { DunnkayceLoader } from "@/components/DunnkayceLoader";
 import { ThemeProvider, useTheme } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
@@ -38,16 +37,14 @@ export const Route = createRootRouteWithContext()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Dunnkayce — Campus Food Ordering" },
+      { title: "DUNNKAYCE — Swift Campus Feast" },
+      {
+        name: "description",
+        content:
+          "Order your favourite campus meals with ease. Fresh. Tasty. Delivered.",
+      },
     ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      // {
-      //   rel: "stylesheet",
-      //   href:
-      //     "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap",
-      // },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
 
   shellComponent: RootShell,
@@ -80,31 +77,42 @@ function RootComponent() {
     select: (r) => r.location.pathname,
   });
 
+  const isLoggedIn = useStore((s) => Boolean(s.currentUserId));
   const isAdmin = pathname?.startsWith("/admin");
+  const isAuthAppRoute = [
+    "/user-dashboard",
+    "/cart",
+    "/checkout",
+    "/orders",
+    "/payments",
+    "/profile",
+    "/change-password",
+  ].includes(pathname);
+  const hideFooter = isAdmin || (isLoggedIn && isAuthAppRoute);
 
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
         {!isAdmin && <Navbar />}
 
-        <div className="flex-1">
-          {sessionLoaded ? (
-            <Outlet />
-          ) : (
-            <div className="flex min-h-screen items-center justify-center">
-              <DunnkayceLoader
-                variant="page"
-                label="Warming up Dunnkayce"
-                caption="Restoring your session, straight from the kitchen."
-              />
-            </div>
-          )}
-        </div>
-      </div>
+          <div className="flex-1">
+            {sessionLoaded ? (
+              <Outlet />
+            ) : (
+              <div className="flex min-h-[70vh] items-center justify-center">
+                <DunnkayceLoader
+                  variant="page"
+                  label="Warming up DUNNKAYCE"
+                  caption="Getting your campus feast ready."
+                />
+              </div>
+            )}
+          </div>
 
-      <ThemedToaster />
-      </QueryClientProvider>
-    </ThemeProvider>
+          {!hideFooter && <Footer />}
+        </div>
+
+      <Toaster richColors position="top-center" />
+    </QueryClientProvider>
   );
 }

@@ -34,6 +34,7 @@ import {
   useDeleteFoodMutation,
 } from "@/lib/api";
 import { FOOD_HIGHLIGHTS } from "@/lib/foodImages";
+import { prepareImageForUpload } from "@/lib/imageUpload";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -618,11 +619,15 @@ function FoodForm({ initial, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     const swallowQty = Number(form.swallowQuantity);
     const isSwallowFood = form.category === "Foods" && form.isSwallow;
     const nextErrors = {
-      name: form.name ? undefined : "Food name is required.",
-      price: form.price ? undefined : "Price is required.",
+      name: form.name?.trim() ? undefined : "Food name is required.",
+      price: form.price !== "" && form.price !== null && form.price !== undefined
+        ? undefined
+        : "Price is required.",
       image: !form.imageUrl && !imageFile ? "Upload a photo to continue." : undefined,
       swallowQuantity:
         isSwallowFood &&
@@ -649,28 +654,42 @@ function FoodForm({ initial, onClose, onSaved }) {
     }
 
     setFieldErrors({});
+    setLoading(true);
     try {
-      setLoading(true);
-      const normalizedAvailableSoups = isSwallowFood ? form.availableSoups : [];
+      const normalizedAvailableSoups = isSwallowFood
+        ? form.availableSoups.map((s) => String(s).trim()).filter(Boolean)
+        : [];
       const normalizedSwallowQuantity = isSwallowFood ? Number(form.swallowQuantity) : 0;
+      const normalizedName = form.name.trim();
+      const normalizedPrice = Number(form.price);
+      const uploadFile = imageFile ? await prepareImageForUpload(imageFile) : null;
       let payload;
 
-      if (imageFile) {
+      if (uploadFile) {
         const formData = new FormData();
-        formData.append("image", imageFile);
-        if (isEdit && form.imageUrl) formData.append("imageUrl", form.imageUrl);
-        formData.append("name", form.name);
-        formData.append("price", Number(form.price));
+        formData.append("image", uploadFile, uploadFile.name);
+        if (isEdit) formData.append("replaceImage", "true");
+        formData.append("name", normalizedName);
+        formData.append("price", String(normalizedPrice));
         formData.append("category", form.category);
         formData.append("status", form.status);
         formData.append("isSwallow", isSwallowFood ? "true" : "false");
-        formData.append("availableSoups", JSON.stringify(normalizedAvailableSoups));
         formData.append("swallowQuantity", String(normalizedSwallowQuantity));
+        // Send both formats for backend compatibility: repeated keys and JSON string.
+        if (normalizedAvailableSoups.length === 0) {
+          formData.append("availableSoups", JSON.stringify([]));
+        } else {
+          normalizedAvailableSoups.forEach((soup) => formData.append("availableSoups", soup));
+          formData.append("availableSoupsJson", JSON.stringify(normalizedAvailableSoups));
+        }
         payload = formData;
       } else {
         payload = {
-          ...form,
-          price: Number(form.price),
+          name: normalizedName,
+          price: normalizedPrice,
+          category: form.category,
+          imageUrl: form.imageUrl,
+          status: form.status,
           isSwallow: isSwallowFood,
           availableSoups: normalizedAvailableSoups,
           swallowQuantity: normalizedSwallowQuantity,
@@ -684,11 +703,13 @@ function FoodForm({ initial, onClose, onSaved }) {
       toast.success(isEdit ? "Food updated" : "Food added");
       onSaved(data?.food, isEdit);
     } catch (error) {
-      if (error?.payload) {
-        toast.error(error?.payload?.message || "Failed");
-      } else {
-        toast.error("Network error");
-      }
+      const message =
+        error?.payload?.message ||
+        error?.payload?.error ||
+        error?.message ||
+        "Failed to save food item";
+      toast.error(message);
+      console.error("[FoodForm] save failed", error);
     } finally {
       setLoading(false);
     }

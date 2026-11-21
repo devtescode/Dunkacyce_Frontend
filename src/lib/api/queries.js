@@ -124,7 +124,7 @@ export function useAdminExistsQuery(options = {}) {
 }
 
 export async function fetchAdminDashboardStats() {
-  const data = await api.get("/admin/dashboard-stats");
+  const data = await api.get("/admin/dashboard-stats", { auth: "admin" });
   return {
     totalStudents: data?.totalStudents ?? 0,
     totalOrders: data?.totalOrders ?? 0,
@@ -145,7 +145,7 @@ export function useAdminDashboardStatsQuery(options = {}) {
 }
 
 export async function fetchAdminOrders() {
-  const data = await api.get("/admin/getorders");
+  const data = await api.get("/admin/getorders", { auth: "admin" });
   return data?.orders ?? [];
 }
 
@@ -158,7 +158,7 @@ export function useAdminOrdersQuery(options = {}) {
 }
 
 export async function fetchAdminCarts() {
-  const data = await api.get("/admin/carts");
+  const data = await api.get("/admin/carts", { auth: "admin" });
   return data?.carts ?? [];
 }
 
@@ -179,6 +179,99 @@ export function useAdminUsersQuery(options = {}) {
   return useQuery({
     queryKey: queryKeys.admin.users(),
     queryFn: fetchAdminUsers,
+    ...options,
+  });
+}
+
+/* --------------------------- admin accounts --------------------------- */
+
+/**
+ * Super Admin only. Requires the backend contract documented in
+ * ADMIN_ACCOUNTS.md: GET /admin/admins with the admin Bearer token.
+ */
+export async function fetchAdminAccounts() {
+  const data = await api.get("/admin/admins", { auth: "admin" });
+  const list = data?.admins ?? data?.adminAccounts ?? data?.users ?? data;
+  return Array.isArray(list) ? list : [];
+}
+
+export function useAdminAccountsQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.admin.admins(),
+    queryFn: fetchAdminAccounts,
+    enabled: Boolean(getToken("admin")),
+    ...options,
+  });
+}
+
+/* -------------------------------- superadmin ------------------------------- */
+
+/**
+ * Public status probe. No auth token is sent.
+ * `data` is `{ exists, hasSuperAdmin, activated }` with boolean fields.
+ */
+export async function fetchSuperadminStatus() {
+  const data = await api.get("/api/superadmin/status");
+  return {
+    exists: Boolean(data?.exists),
+    hasSuperAdmin: Boolean(data?.hasSuperAdmin),
+    activated: Boolean(data?.activated),
+  };
+}
+
+/** `data` is the normalized superadmin status object. */
+export function useSuperadminStatusQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.superadmin.status(),
+    queryFn: fetchSuperadminStatus,
+    ...options,
+  });
+}
+
+/** Fetch the current admin's superadmin capabilities. Requires an admin token. */
+export async function fetchSuperadminMe() {
+  return api.get("/api/superadmin/me", { auth: "admin" });
+}
+
+/** `data` is `{ id, email, username, role, status, canManageAdmins }`. */
+export function useSuperadminMeQuery(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.superadmin.me(),
+    queryFn: fetchSuperadminMe,
+    enabled: Boolean(getToken("admin")),
+    ...options,
+  });
+}
+
+/**
+ * Super Admin only. Lists managed admins with stats and pagination.
+ * `data` is `{ admins, stats, pagination }`.
+ */
+export async function fetchSuperadminAdmins({
+  search = "",
+  status = "all",
+  page = 1,
+  limit = 10,
+} = {}) {
+  const params = new URLSearchParams({
+    search: String(search),
+    status: String(status),
+    page: String(page),
+    limit: String(limit),
+  });
+  const query = params.toString();
+  const path = `/api/superadmin/admins${query ? `?${query}` : ""}`;
+  const data = await api.get(path, { auth: "admin" });
+  const admins = data?.admins ?? [];
+  return { ...(data && typeof data === "object" ? data : {}), admins };
+}
+
+/** Managed-admins list, refetched whenever a filter changes. */
+export function useSuperadminAdminsQuery({ search, status, page, limit, ...options } = {}) {
+  return useQuery({
+    queryKey: [...queryKeys.superadmin.admins(), search, status, page, limit],
+    queryFn: () => fetchSuperadminAdmins({ search, status, page, limit }),
+    enabled: Boolean(getToken("admin")),
     ...options,
   });
 }

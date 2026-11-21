@@ -1,7 +1,20 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Flame, Search, ShoppingBag, Store } from "lucide-react";
+import {
+  ArrowRight,
+  Clock3,
+  Drumstick,
+  Flame,
+  Minus,
+  Plus,
+  Search,
+  ShoppingCart,
+  Soup,
+  Sparkles,
+  UtensilsCrossed,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   ApiError,
   queryKeys,
@@ -9,51 +22,65 @@ import {
   useFoodsQuery,
   useRushHourQuery,
 } from "@/lib/api";
-import { store } from "@/lib/store";
 import { getSessionUser } from "@/lib/session";
-import { toast } from "sonner";
+import { store, formatNGN } from "@/lib/store";
 import { socket } from "@/lib/socket";
 import { DunnkayceLoader } from "@/components/DunnkayceLoader";
+import { cn } from "@/lib/utils";
 
-// Works whether queryKeys.foods.all is the factory function or the flat key array.
 const foodsQueryKey =
-  typeof queryKeys.foods.all === "function"
-    ? queryKeys.foods.all()
-    : queryKeys.foods.all;
+  typeof queryKeys.foods.all === "function" ? queryKeys.foods.all() : queryKeys.foods.all;
 
-/* ================= NORMALIZE ================= */
+const CATEGORIES = [
+  { id: "All", label: "All", icon: Sparkles },
+  { id: "Foods", label: "Foods", icon: UtensilsCrossed },
+  { id: "Protein", label: "Protein", icon: Drumstick },
+  { id: "Swallow", label: "Swallow", icon: Soup },
+];
+
+const PAGE_SIZE = 4;
+
 const normalizeFood = (food) => ({
   ...food,
-  id: food._id ?? food.id,
-  image: food.imageUrl ?? food.image ?? "",
-  category: food.category ?? "Foods",
-  isSwallow: Boolean(food?.isSwallow ?? food?.is_swallow ?? false),
-  availableSoups: Array.isArray(food?.availableSoups) ? food.availableSoups : [],
-  swallowQuantity: Number(food?.swallowQuantity ?? 0),
+  id: food?._id ?? food?.id,
+  name: food?.name ?? "Meal",
+  description: food?.description || "Freshly prepared and delicious.",
+  price: Number(food?.price ?? 0),
+  image:
+    food?.imageUrl ||
+    food?.image ||
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80",
+  category: food?.category ?? "Foods",
+  status: food?.status ?? "Available",
+  isSwallow: Boolean(food?.isSwallow ?? food?.is_swallow),
+  availableSoups: Array.isArray(food?.availableSoups)
+    ? food.availableSoups
+    : Array.isArray(food?.soups)
+      ? food.soups
+      : [],
+  swallowStock: Number(food?.swallowStock ?? food?.swallowQuantity ?? food?.stock ?? 0),
+  swallowQuantity: Number(food?.swallowQuantity ?? food?.swallowStock ?? food?.stock ?? 0),
 });
 
 export const Route = createFileRoute("/user-dashboard")({
+  head: () => ({ meta: [{ title: "Menu — DUNNKAYCE" }] }),
   component: UserDashboard,
 });
 
 function UserDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const [user, setUser] = useState(() => getSessionUser());
-  const [cat, setCat] = useState("All");
-  const [q, setQ] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [category, setCategory] = useState("All");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  const foodsQuery = useFoodsQuery({ refetchInterval: 5000 });
-  const rushHourQuery = useRushHourQuery({ refetchInterval: 5000 });
+  const foodsQuery = useFoodsQuery({ refetchInterval: 15000 });
+  const rushHourQuery = useRushHourQuery({ refetchInterval: 15000 });
+  const foods = useMemo(() => (foodsQuery.data ?? []).map(normalizeFood), [foodsQuery.data]);
+  const rushHour = Boolean(rushHourQuery.data);
 
-  const foodsData = foodsQuery.data ?? [];
-  const foods = useMemo(() => foodsData.map(normalizeFood), [foodsData]);
-  const loadingFoods = foodsQuery.isPending;
-  const rushHour = rushHourQuery.data ?? false;
-
-  /* ================= AUTH ================= */
   useEffect(() => {
     const sessionUser = getSessionUser();
     if (sessionUser) {
@@ -64,47 +91,36 @@ function UserDashboard() {
   }, []);
 
   useEffect(() => {
-    if (hydrated && !user) {
-      navigate({ to: "/login", replace: true });
-    }
-  }, [hydrated, user]);
+    if (hydrated && !user) navigate({ to: "/login", replace: true });
+  }, [hydrated, user, navigate]);
 
-  /* ================= SOCKET ================= */
   useEffect(() => {
-    if (!socket) return;
-
+    if (!socket) return undefined;
     const onAdd = (food) => {
       queryClient.setQueryData(foodsQueryKey, (prev = []) => {
-        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
-        const exists = current.some((f) => f.id === (food._id || food.id));
-        if (exists) return current;
-
-        return [normalizeFood(food), ...current];
+        const current = Array.isArray(prev) ? prev : [];
+        const id = food?._id ?? food?.id;
+        if (current.some((f) => (f?._id ?? f?.id) === id)) return current;
+        return [food, ...current];
       });
     };
-
-    const onUpdate = (updatedFood) => {
+    const onUpdate = (food) => {
       queryClient.setQueryData(foodsQueryKey, (prev = []) => {
-        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
-        return current.map((f) =>
-          f.id === (updatedFood._id || updatedFood.id)
-            ? normalizeFood(updatedFood)
-            : f
-        );
+        const current = Array.isArray(prev) ? prev : [];
+        const id = food?._id ?? food?.id;
+        return current.map((f) => ((f?._id ?? f?.id) === id ? food : f));
       });
     };
-
     const onDelete = (id) => {
       queryClient.setQueryData(foodsQueryKey, (prev = []) => {
-        const current = Array.isArray(prev) ? prev.map(normalizeFood) : [];
-        return current.filter((f) => f.id !== id && f._id !== id);
+        const current = Array.isArray(prev) ? prev : [];
+        return current.filter((f) => (f?._id ?? f?.id) !== id);
       });
     };
 
     socket.on("food_added", onAdd);
     socket.on("food_updated", onUpdate);
     socket.on("food_deleted", onDelete);
-
     return () => {
       socket.off("food_added", onAdd);
       socket.off("food_updated", onUpdate);
@@ -112,195 +128,270 @@ function UserDashboard() {
     };
   }, [queryClient]);
 
+  const searchMatchedFoods = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return foods;
+    return foods.filter(
+      (food) =>
+        food.name.toLowerCase().includes(q) ||
+        String(food.description || "").toLowerCase().includes(q),
+    );
+  }, [foods, search]);
 
-  /* ================= FILTER ================= */
-  const userFirstName = user?.fullName?.split(" ")[0] ?? "there";
+  const categoryCounts = useMemo(() => {
+    const counts = { All: searchMatchedFoods.length, Foods: 0, Protein: 0, Swallow: 0 };
+    for (const food of searchMatchedFoods) {
+      if (food.isSwallow) counts.Swallow += 1;
+      if (food.category === "Foods") counts.Foods += 1;
+      if (food.category === "Protein") counts.Protein += 1;
+    }
+    return counts;
+  }, [searchMatchedFoods]);
 
-  const filtered = useMemo(() => {
-    return foods.filter((f) => {
-      const matchesCategory =
-        cat === "All" ||
-        (cat === "Swallow" ? f.isSwallow : f.category === cat);
-      return matchesCategory && f.name.toLowerCase().includes(q.toLowerCase());
+  const filteredFoods = useMemo(() => {
+    return searchMatchedFoods.filter((food) => {
+      return (
+        category === "All" ||
+        (category === "Swallow" ? food.isSwallow : food.category === category)
+      );
     });
-  }, [foods, cat, q]);
+  }, [searchMatchedFoods, category]);
 
-  const OrderHistory = () => { navigate({ to: "/orders" }); }
+  useEffect(() => {
+    setPage(1);
+  }, [category, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFoods.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  const paginatedFoods = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredFoods.slice(start, start + PAGE_SIZE);
+  }, [filteredFoods, page]);
+
+  const pageStart = filteredFoods.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, filteredFoods.length);
 
   if (!hydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <DunnkayceLoader variant="page" label="Warming up your dashboard" caption="Getting the campus kitchen ready for you." />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <DunnkayceLoader variant="page" label="Loading your menu" caption="Getting fresh meals ready for you." />
       </div>
     );
   }
 
   if (!user) return null;
 
+  const firstName = user?.fullName?.split(" ")[0] || "there";
+
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10">
-
-      {/* ================= HERO ================= */}
-      {/* <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-black p-5 sm:p-8 text-white mb-6 sm:mb-10">
-
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs sm:text-sm">
-            <Flame className="h-4 w-4 text-yellow-400" />
-            Fresh today
-          </div>
-
-          <h1 className="text-2xl sm:text-4xl font-bold">
-            Hey {userFirstName}
-          </h1>
-          <p className="font-display text-2xl font-medium tracking-tight text-white/90 md:text-3xl"> what are you eating? </p>
-
-          <p className="mt-3 max-w-md text-sm opacity-80"> Browse the menu, fill your cart, pay, and we'll deliver straight to your hostel room. </p>
-
-          <div className="text-xs sm:text-sm">
-            {rushHour ? "Rush Hour is active. You can place orders online" : "crowds are currently low. You can visit Dunnkayce physically."}
-          </div>
-        </div>
-      </section> */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-black p-5 sm:p-8 text-white mb-6 sm:mb-10">
-
-        {/* Glow Orbs */}
-        <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-accent/25 blur-3xl transition-transform duration-700 group-hover:scale-110" />
-        <div className="absolute -left-8 -bottom-12 h-56 w-56 rounded-full bg-warning/20 blur-3xl transition-transform duration-700 group-hover:scale-110" />
-
-        <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-
-          {/* LEFT */}
-          <div className="space-y-4 max-w-xl">
-
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase backdrop-blur-md border border-white/10 shadow-sm">
-              <Flame className="h-3.5 w-3.5 text-amber-400 fill-amber-400 animate-pulse" />
-              Fresh today
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden rounded-[2rem] bg-primary px-6 py-8 text-primary-foreground shadow-xl shadow-primary/15 sm:px-8 sm:py-10">
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/20 blur-3xl" />
+        <div className="absolute -bottom-10 left-10 h-40 w-40 rounded-full bg-success/20 blur-3xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-primary-foreground/90">
+              <Flame className="h-4 w-4 text-accent" /> Fresh today
             </div>
-
-            <div className="space-y-1">
-              <h1 className="font-display text-5xl font-black tracking-tight text-white md:text-6xl mt-2">
-                Hey {userFirstName},
-              </h1>
-              <p className="font-display text-2xl font-medium tracking-tight text-white/90 md:text-3xl">
-                what are you eating?
-              </p>
-            </div>
-
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-white/75">
-              Browse the menu, fill your cart, pay seamlessly, and we'll deliver straight to your hostel room.
+            <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl">
+              Hey {firstName}, <span className="block text-accent">what are you eating?</span>
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-primary-foreground/80 sm:text-base">
+              Browse the menu, fill your cart, pay securely, and we’ll deliver straight to your hostel room.
             </p>
 
-            {/* Status Pill */}
-            <div
-              className={`mt-4 inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold tracking-wide shadow-inner backdrop-blur-md border transition-all duration-500 ${rushHour
-                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
-                : "bg-amber-500/15 text-amber-300 border-amber-500/20"
-                }`}
-            >
-              <span className="relative flex h-2 w-2">
-                <span
-                  className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${rushHour ? "bg-emerald-400" : "bg-amber-400"
-                    }`}
-                />
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${rushHour ? "bg-emerald-400" : "bg-amber-400"
-                    }`}
-                />
+            <div className="mt-5 inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm backdrop-blur">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", rushHour ? "bg-accent" : "bg-emerald-300")} />
+                <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", rushHour ? "bg-accent" : "bg-emerald-300")} />
               </span>
-
-              <span className="opacity-90">
-                {rushHour
-                  ? "Rush Hour is active. You can place orders online."
-                  : "Crowds are currently low. You can visit Dunnkayce physically."}
+              <span className="font-medium">
+                {rushHour ? "Rush hour is active — place your order online now." : "Crowds are calm — a great time to order."}
               </span>
             </div>
           </div>
 
-          {/* RIGHT BUTTON */}
-          <div className="self-start md:self-auto pt-2 md:pt-0">
+          <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => {
-                if (!rushHour) {
-                  OrderHistory(); // only navigate in OFF-peak mode
-                } else {
-                  // DO NOTHING OR OPEN MODAL
-                  console.log("Order Online clicked");
-                }
-              }}
-              className="group relative flex items-center gap-2 overflow-hidden rounded-2xl bg-white px-6 py-4 text-sm font-bold text-black shadow-xl transition-all duration-300 hover:bg-neutral-50 hover:scale-[1.03] active:scale-[0.98]"
+              onClick={() => document.getElementById("menu-grid")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-sm font-bold text-accent-foreground transition hover:bg-accent/90"
             >
-              {rushHour ? (
-                <>
-                  <ShoppingBag className="h-4 w-4 text-primary transition-transform group-hover:rotate-12" />
-                  <span>Order Online Now</span>
-                </>
-              ) : (
-                <>
-                  <Store className="h-4 w-4 text-amber-600 transition-transform group-hover:scale-110" />
-                  <span>Orders History</span>
-                </>
-              )}
-
-              <ArrowRight className="h-4 w-4 opacity-70 transition-transform group-hover:translate-x-1" />
+              <ShoppingCart className="h-4 w-4" /> Order Online
+            </button>
+            <button
+              onClick={() => navigate({ to: "/orders" })}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-white/15"
+            >
+              <Clock3 className="h-4 w-4" /> My Orders <ArrowRight className="h-4 w-4" />
             </button>
           </div>
-
         </div>
       </section>
-      {/* ================= FILTER ================= */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:justify-between mb-6">
 
-        <div className="flex flex-wrap gap-2">
-          {["All", "Foods", "Protein", "Swallow"].map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`px-3 sm:px-4 py-1 sm:py-2 rounded-full text-sm ${cat === c ? "bg-black text-white" : "bg-gray-200"
-                }`}
-            >
-              {c}
-            </button>
-          ))}
+      <section id="menu-grid" className="scroll-mt-24 pt-10">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-success">Today's Favourites</p>
+            <h2 className="mt-1 text-3xl font-black tracking-tight text-foreground">Explore the menu</h2>
+          </div>
+          <label className="relative block w-full lg:w-80">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search meals..."
+              aria-label="Search meals"
+              className="h-12 w-full rounded-2xl border border-border bg-card pl-11 pr-4 text-sm outline-none transition focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
         </div>
 
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search..."
-          className="border px-3 py-2 rounded-full w-full sm:w-64"
-        />
-      </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {CATEGORIES.map(({ id, label, icon: Icon }) => {
+            const active = category === id;
+            const count = categoryCounts[id] ?? 0;
+            return (
+              <button
+                key={id}
+                onClick={() => setCategory(id)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold transition sm:px-5",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/15"
+                    : "border-border bg-card text-foreground hover:border-primary/20 hover:bg-secondary",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+                <span
+                  className={cn(
+                    "inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold",
+                    active ? "bg-white/20 text-primary-foreground" : "bg-secondary text-primary",
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-      {/* ================= LIST ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="mt-8">
+          {foodsQuery.isPending && foods.length === 0 ? (
+            <div className="rounded-3xl border border-border bg-card p-8">
+              <DunnkayceLoader variant="compact" label="Loading today's menu" caption="Fresh picks are on the way." />
+            </div>
+          ) : foodsQuery.isError ? (
+            <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-8 text-center">
+              <p className="text-lg font-bold text-foreground">Could not load the menu</p>
+              <p className="mt-2 text-sm text-muted-foreground">Please try again in a moment.</p>
+              <button onClick={() => foodsQuery.refetch()} className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Retry</button>
+            </div>
+          ) : filteredFoods.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card p-12 text-center">
+              <UtensilsCrossed className="mx-auto h-10 w-10 text-muted-foreground/50" />
+              <p className="mt-4 text-lg font-bold">No meals match your search</p>
+              <p className="mt-1 text-sm text-muted-foreground">Try another category or clear the search.</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{pageStart}–{pageEnd}</span> of{" "}
+                  <span className="font-semibold text-foreground">{filteredFoods.length}</span>{" "}
+                  {filteredFoods.length === 1 ? "meal" : "meals"}
+                </p>
+                {totalPages > 1 && (
+                  <p className="text-sm text-muted-foreground">
+                    Page <span className="font-semibold text-foreground">{page}</span> of{" "}
+                    <span className="font-semibold text-foreground">{totalPages}</span>
+                  </p>
+                )}
+              </div>
 
-        {loadingFoods && foods.length === 0 && (
-          <div className="col-span-full text-center">
-            <DunnkayceLoader variant="compact" label="Loading today's menu" caption="Fresh picks are on the way." className="w-full justify-center" />
-          </div>
-        )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+                {paginatedFoods.map((food) => (
+                  <FoodCard key={food.id} food={food} />
+                ))}
+              </div>
 
-        {filtered.map((f) => (
-          <FoodCard key={f.id} food={f} />
-        ))}
+              {totalPages > 1 && (
+                <nav className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row" aria-label="Pagination">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
 
-      </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      const active = pageNum === page;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setPage(pageNum)}
+                          aria-label={`Go to page ${pageNum}`}
+                          aria-current={active ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition",
+                            active
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "border border-border bg-card text-foreground hover:bg-secondary",
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </nav>
+              )}
+            </>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
 
-/* ================= FOOD CARD ================= */
 function FoodCard({ food }) {
+  const { mutateAsync: addToCart, isPending } = useAddToCartMutation();
   const [quantity, setQuantity] = useState(1);
   const [selectedSoup, setSelectedSoup] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { mutateAsync: addToCart } = useAddToCartMutation();
+  const [adding, setAdding] = useState(false);
 
-  const isSwallow = Boolean(food.isSwallow);
-  const swallowQty = Number(food.swallowQuantity ?? 0);
-  const hasSwallowStock = !isSwallow || swallowQty > 0;
-  const needsSoup = isSwallow && Array.isArray(food.availableSoups) && food.availableSoups.length > 0;
-  const maxQty = isSwallow && swallowQty > 0 ? swallowQty : undefined;
+  const status = String(food.status || "").toLowerCase();
+  const swallowStock = Number(food.swallowStock ?? food.swallowQuantity ?? food.stock ?? 0);
+  const maxQty = food.isSwallow && swallowStock > 0 ? swallowStock : undefined;
+  const unavailable =
+    !food.status ||
+    ["preparing", "not available", "unavailable", "out of stock", "disabled"].includes(status) ||
+    (food.isSwallow && swallowStock <= 0);
+  const hasSoups = food.isSwallow && Array.isArray(food.availableSoups) && food.availableSoups.length > 0;
+  const canAdd =
+    !unavailable &&
+    !adding &&
+    !isPending &&
+    (!hasSoups || Boolean(selectedSoup)) &&
+    (!maxQty || quantity <= maxQty);
 
   useEffect(() => {
     if (maxQty && quantity > maxQty) {
@@ -308,196 +399,119 @@ function FoodCard({ food }) {
     }
   }, [maxQty, quantity]);
 
-  const isUnavailable =
-    !food.status ||
-    ["preparing", "not available", "unavailable", "out of stock"].includes(
-      food.status.toLowerCase()
-    ) ||
-    !hasSwallowStock;
-
-  const statusColor =
-    food.status === "Available"
-      ? "bg-green-100 text-green-700"
-      : food.status === "Not available"
-        ? "bg-red-100 text-red-700"
-        : "bg-yellow-100 text-yellow-700";
-
-  const canAdd =
-    !loading &&
-    !isUnavailable &&
-    (!needsSoup || Boolean(selectedSoup)) &&
-    (!maxQty || quantity <= maxQty);
-
-  const add = async () => {
-    if (needsSoup && !selectedSoup) {
+  const handleAdd = async () => {
+    if (hasSoups && !selectedSoup) {
       toast.error("Please select a soup");
       return;
     }
     if (maxQty && quantity > maxQty) {
-      toast.error(`Only ${swallowQty} left`);
+      toast.error(`Only ${swallowStock} left`);
       return;
     }
-
     try {
-      setLoading(true);
-
+      setAdding(true);
       await addToCart({
         foodId: food.id,
         quantity,
         ...(selectedSoup ? { soup: selectedSoup } : {}),
       });
-
       toast.success(`${food.name} added to cart`);
       setQuantity(1);
       setSelectedSoup("");
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Network error"
-      );
+      toast.error(error instanceof ApiError ? error.message : "Unable to add to cart");
     } finally {
-      setLoading(false);
+      setAdding(false);
     }
   };
 
   return (
-    <article className="rounded-xl border bg-white overflow-hidden shadow-sm hover:shadow-md transition">
-
-      {/* IMAGE */}
-      <div className="relative aspect-[4/3] bg-gray-100">
-        <img src={food.image} className="w-full h-full object-cover" />
-
-        {/* STATUS / SWALLOW */}
-        {(food.status || isSwallow) && (
-          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            {food.status && (
-              <span
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor}`}
-              >
-                {food.status}
-              </span>
-            )}
-            {isSwallow && (
-              <span className="rounded-full border border-amber-200 bg-amber-100/95 px-2.5 py-1 text-[11px] font-semibold text-amber-800 shadow-sm">
-                Swallow
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* CATEGORY */}
-        <span className="absolute top-2 right-2 px-2.5 py-1 text-[11px] rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 shadow-sm">
-          {food.category}
-        </span>
+    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div className="relative aspect-[4/4.6] overflow-hidden bg-muted sm:aspect-[4/4.2]">
+        <img
+          src={food.image}
+          alt={food.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+          onError={(e) => {
+            e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
+          }}
+        />
+        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-primary shadow-sm">{food.category}</span>
+          {food.isSwallow && <span className="rounded-full bg-accent px-3 py-1 text-[11px] font-bold text-accent-foreground shadow-sm">Swallow</span>}
+        </div>
+        <div className="absolute right-3 top-3">
+          <span className={cn("rounded-full px-3 py-1 text-[11px] font-bold shadow-sm", unavailable ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>
+            {unavailable ? "Unavailable" : "Available"}
+          </span>
+        </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="p-3 sm:p-4 space-y-3">
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <h3 className="text-base font-bold leading-tight text-foreground sm:text-lg">{food.name}</h3>
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">{food.description}</p>
 
-        {/* NAME + PRICE */}
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold text-sm sm:text-base line-clamp-1">
-            {food.name}
-          </h3>
-          <p className="font-bold text-sm sm:text-base">
-            ₦{food.price}
-          </p>
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-lg font-black text-primary sm:text-xl">{formatNGN(food.price)}</p>
+          {food.isSwallow && food.swallowStock > 0 && <span className="text-[11px] font-medium text-muted-foreground">{food.swallowStock} left</span>}
         </div>
 
-        {/* SWALLOW QUANTITY */}
-        {isSwallow && (
-          <div className="text-xs sm:text-sm">
-            {swallowQty <= 0 ? (
-              <span className="font-medium text-red-600">Out of stock</span>
-            ) : (
-              <span className={swallowQty < 10 ? "font-medium text-amber-600" : "text-gray-600"}>
-                {swallowQty} swallows left
-              </span>
+        {hasSoups && (
+          <div className="mt-4">
+            <label htmlFor={`soup-${food.id}`} className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Soup</span>
+              <span className="text-[11px] text-muted-foreground">{food.availableSoups.length} option{food.availableSoups.length === 1 ? "" : "s"}</span>
+            </label>
+            <select
+              id={`soup-${food.id}`}
+              value={selectedSoup}
+              onChange={(e) => setSelectedSoup(e.target.value)}
+              className={cn(
+                "h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/10",
+                selectedSoup ? "border-primary/40 text-foreground" : "border-border text-muted-foreground",
+              )}
+              aria-label={`Select soup for ${food.name}`}
+            >
+              <option value="">Select a soup...</option>
+              {food.availableSoups.map((soup) => (
+                <option key={soup} value={soup}>
+                  {soup}
+                </option>
+              ))}
+            </select>
+            {selectedSoup && (
+              <p className="mt-1.5 truncate text-[11px] font-medium text-primary">
+                Selected: {selectedSoup}
+              </p>
             )}
           </div>
         )}
 
-        {/* SOUP SELECTION */}
-        {needsSoup && (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-700">Select soup</p>
-            <div className="flex flex-wrap gap-2">
-              {food.availableSoups.map((soup) => {
-                const selected = selectedSoup === soup;
-                return (
-                  <button
-                    key={soup}
-                    type="button"
-                    onClick={() => setSelectedSoup(soup)}
-                    disabled={isUnavailable}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
-                      selected
-                        ? "border-black bg-black text-white"
-                        : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                    } ${isUnavailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <span
-                      className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${
-                        selected ? "border-white" : "border-gray-400"
-                      }`}
-                    >
-                      {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                    </span>
-                    {soup}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="mt-auto pt-4">
+          <div className="flex items-center justify-between rounded-2xl border border-border bg-background px-3 py-2">
+            <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="inline-flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary disabled:opacity-40" aria-label={`Decrease quantity for ${food.name}`} disabled={unavailable || quantity <= 1}>
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-bold">{quantity}</span>
+            <button type="button" onClick={() => setQuantity((q) => Math.min(maxQty ?? Infinity, q + 1))} className="inline-flex h-9 w-9 items-center justify-center rounded-xl hover:bg-secondary disabled:opacity-40" aria-label={`Increase quantity for ${food.name}`} disabled={unavailable || Boolean(maxQty && quantity >= maxQty)}>
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
-        )}
 
-        {/* QUANTITY */}
-        <div className="flex items-center justify-between border rounded-lg px-3 py-2">
-
-          <button
-            onClick={() => setQuantity((p) => Math.max(1, p - 1))}
-            disabled={isUnavailable}
-            className={`text-lg font-bold ${isUnavailable ? "opacity-40 cursor-not-allowed" : ""
-              }`}
-          >
-            -
+          <button type="button" onClick={handleAdd} disabled={!canAdd} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-50">
+            <ShoppingCart className="h-4 w-4" />
+            {adding
+              ? "Adding..."
+              : unavailable
+                ? food.isSwallow && swallowStock <= 0
+                  ? "Out of stock"
+                  : "Unavailable"
+                : hasSoups && !selectedSoup
+                  ? "Select a soup"
+                  : "Add to Cart"}
           </button>
-
-          <span className="font-medium">{quantity}</span>
-
-          <button
-            onClick={() => setQuantity((p) => (maxQty ? Math.min(maxQty, p + 1) : p + 1))}
-            disabled={isUnavailable || (maxQty ? quantity >= maxQty : false)}
-            className={`text-lg font-bold ${isUnavailable || (maxQty ? quantity >= maxQty : false) ? "opacity-40 cursor-not-allowed" : ""
-              }`}
-          >
-            +
-          </button>
-
         </div>
-
-        {/* BUTTON */}
-        <button
-          onClick={add}
-          disabled={!canAdd}
-          className="w-full flex items-center justify-center gap-2 mt-2 text-white py-2.5 rounded-md text-sm disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-br from-primary to-black
-          "
-        >
-          {loading ? (
-            <>
-              <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Adding...
-            </>
-          ) : !hasSwallowStock ? (
-            "Out of stock"
-          ) : isUnavailable ? (
-            "Not Available"
-          ) : needsSoup && !selectedSoup ? (
-            "Select a soup"
-          ) : (
-            "Add to Cart"
-          )}
-        </button>
-
       </div>
     </article>
   );

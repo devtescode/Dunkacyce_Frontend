@@ -1,9 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
+  CalendarCheck2,
   CheckCircle2,
   Clock3,
+  Loader2,
   Lock,
+  LockOpen,
   MapPin,
   PackageCheck,
   ReceiptText,
@@ -29,7 +34,24 @@ import {
   StatusPill,
   toneClasses,
 } from "@/components/admin";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -38,7 +60,19 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useAdminOrdersQuery } from "@/lib/api";
+import {
+  queryKeys,
+  useAdminOrdersQuery,
+  useUpdateOrderStatusMutation,
+} from "@/lib/api";
+import {
+  DEFAULT_ETA_MINUTES,
+  formatOrderDateTime,
+  getDeliveredAt,
+  getEtaDeadline,
+  getReadyAt,
+} from "@/lib/orderTracking";
+import { getAdminSocket } from "@/lib/socket";
 import { formatNGN } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +81,7 @@ export const Route = createFileRoute("/admin-dashboard-order-management")({
   component: OrderManagementPage,
 });
 
-const STATUS_OPTIONS = ["Preparing", "Ready", "Delivered"];
+const STATUS_OPTIONS = ["Pending", "Preparing", "Ready", "Delivered"];
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -76,6 +110,12 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(date);
+}
+
+function toDateTimeAttr(value) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
 function formatMoney(value) {
@@ -134,6 +174,19 @@ function getStatusToneName(status) {
   }
 }
 
+function getConfirmToneClass(status) {
+  switch (status) {
+    case "Delivered":
+      return "bg-success text-success-foreground hover:bg-success/90";
+    case "Ready":
+      return "bg-blue-600 text-white hover:bg-blue-700";
+    case "Preparing":
+      return "bg-warning text-amber-950 hover:bg-warning/90";
+    default:
+      return "";
+  }
+}
+
 function getStatusIcon(status) {
   switch (status) {
     case "Delivered":
@@ -186,6 +239,10 @@ function DetailField({ label, value }) {
 
 function OrderDetailsSheet({ order }) {
   const items = getItems(order);
+  const deliveredAt = getDeliveredAt(order);
+  const readyAt = getReadyAt(order);
+  const etaDeadline = getEtaDeadline(order);
+  const status = order?.status || "Preparing";
 
   return (
     <Sheet>
@@ -273,40 +330,142 @@ function OrderDetailsSheet({ order }) {
             )}
           </AdminPanel>
 
-          <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-            Fulfillment status is shown read-only. Status updates stay disabled until the backend endpoint is deployed.
-          </div>
+          <AdminPanel className="p-4">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                Fulfillment timeline
+              </p>
+              {deliveredAt ? (
+                <StatusPill tone="fresh" dot={false}>
+                  <CalendarCheck2 aria-hidden="true" className="h-3 w-3" />
+                  Delivery recorded
+                </StatusPill>
+              ) : null}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <DetailField label="Placed" value={formatDateTime(order?.createdAt)} />
+              <DetailField
+                label="Ready"
+                value={readyAt ? formatOrderDateTime(readyAt) : "—"}
+              />
+              <DetailField
+                label="Delivered"
+                value={
+                  deliveredAt ? (
+                    <time dateTime={toDateTimeAttr(deliveredAt)}>
+                      {formatOrderDateTime(deliveredAt)}
+                    </time>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            </div>
+            {deliveredAt ? (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-xs leading-5 text-success">
+                <CalendarCheck2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Delivered <time dateTime={toDateTimeAttr(deliveredAt)}>{formatOrderDateTime(deliveredAt)}</time>
+                  . This is the recorded handoff date and time.
+                </span>
+              </div>
+            ) : status === "Ready" && etaDeadline ? (
+              <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                <Truck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                Estimated arrival by {formatOrderDateTime(etaDeadline)} · ~
+                {order?.etaMinutes || DEFAULT_ETA_MINUTES} min to arrival
+              </p>
+            ) : null}
+          </AdminPanel>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function FulfillmentControl({ order }) {
+function FulfillmentControl({
+  order,
+  onRequestStatusChange,
+  isUpdating,
+  isUnlocked,
+  onToggleUnlock,
+}) {
   const currentStatus = order?.status || "Preparing";
+  const shortId = getShortOrderId(order);
+  const orderId = getOrderId(order);
+  const UnlockIcon = isUnlocked ? LockOpen : Lock;
 
   return (
     <div className="w-full space-y-2 sm:max-w-[280px]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         Fulfillment status
       </p>
-      <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2.5">
+      <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2">
         <StatusPill tone={getStatusToneName(currentStatus)}>{currentStatus}</StatusPill>
-        <Lock aria-hidden="true" className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+        <button
+          type="button"
+          onClick={onToggleUnlock}
+          disabled={isUpdating || !orderId}
+          aria-label={`${isUnlocked ? "Lock" : "Unlock"} status control for order ${shortId}`}
+          aria-pressed={isUnlocked}
+          className={cn(
+            "ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-transparent text-muted-foreground transition hover:border-border hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+            isUnlocked && "border-primary/25 bg-primary/10 text-primary",
+          )}
+        >
+          <UnlockIcon aria-hidden="true" className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <p className="text-xs leading-5 text-muted-foreground">
-        Status updates unavailable — backend endpoint not deployed. This status is read-only.
-      </p>
+
+      {isUnlocked ? (
+        <Select
+          value={STATUS_OPTIONS.includes(currentStatus) ? currentStatus : "Preparing"}
+          onValueChange={(value) => onRequestStatusChange(order, value)}
+          disabled={isUpdating || !orderId}
+        >
+          <SelectTrigger
+            className="h-9 rounded-xl bg-background"
+            aria-label={`Update status for order ${shortId}`}
+          >
+            <span className="flex items-center gap-2">
+              {isUpdating ? (
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+              ) : null}
+              <SelectValue placeholder="Select status" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <p className="text-xs leading-5 text-muted-foreground">
+          Click the lock to change the fulfillment status.
+        </p>
+      )}
+
       <p className="text-xs text-muted-foreground">Placed {formatDate(order?.createdAt)}</p>
     </div>
   );
 }
 
-function OrderCard({ order }) {
+function OrderCard({
+  order,
+  onRequestStatusChange,
+  isUpdating,
+  isUnlocked,
+  onToggleUnlock,
+}) {
   const items = getItems(order);
   const visibleItems = items.slice(0, 3);
   const remainingCount = Math.max(items.length - visibleItems.length, 0);
   const status = order?.status || "Preparing";
+  const deliveredAt = getDeliveredAt(order);
+  const readyAt = getReadyAt(order);
 
   return (
     <AdminPanel
@@ -337,6 +496,22 @@ function OrderCard({ order }) {
           </div>
         </div>
         <StatusBadge status={status} />
+        {deliveredAt ? (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+            <CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            <time dateTime={toDateTimeAttr(deliveredAt)}>
+              Delivered {formatOrderDateTime(deliveredAt)}
+            </time>
+          </p>
+        ) : status === "Ready" ? (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+            <Truck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              Ready {formatOrderDateTime(readyAt)} · ~
+              {order?.etaMinutes || DEFAULT_ETA_MINUTES} min to arrival
+            </span>
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-5 p-5">
@@ -405,7 +580,13 @@ function OrderCard({ order }) {
         </div>
 
         <div className="mt-auto flex flex-col gap-4 border-t border-border/60 pt-4 sm:flex-row sm:items-end sm:justify-between">
-          <FulfillmentControl order={order} />
+          <FulfillmentControl
+            order={order}
+            onRequestStatusChange={onRequestStatusChange}
+            isUpdating={isUpdating}
+            isUnlocked={isUnlocked}
+            onToggleUnlock={onToggleUnlock}
+          />
           <OrderDetailsSheet order={order} />
         </div>
       </div>
@@ -426,10 +607,30 @@ function LoadingState() {
 
 function OrderManagementPage() {
   const { data, error, isPending, isFetching, refetch } = useAdminOrdersQuery();
+  const { mutateAsync: updateOrderStatus } = useUpdateOrderStatusMutation();
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [updatingIds, setUpdatingIds] = useState(() => new Set());
+  const [unlockedIds, setUnlockedIds] = useState(() => new Set());
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
+
+  useEffect(() => {
+    const socket = getAdminSocket();
+    if (!socket) return undefined;
+
+    const invalidateOrders = () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.orders() });
+    };
+    const events = ["order_status_updated", "order_ready", "order_delivered"];
+
+    events.forEach((event) => socket.on(event, invalidateOrders));
+    return () => {
+      events.forEach((event) => socket.off(event, invalidateOrders));
+    };
+  }, [queryClient]);
 
   const allOrders = Array.isArray(data) ? data : [];
 
@@ -516,11 +717,81 @@ function OrderManagementPage() {
     setSortBy("newest");
   };
 
+  const toggleUnlock = (id) => {
+    if (!id) return;
+    setUnlockedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const requestStatusChange = (order, nextStatus) => {
+    const orderId = getOrderId(order);
+    const currentStatus = order?.status || "Preparing";
+    if (!orderId || !nextStatus || nextStatus === currentStatus) return;
+
+    setPendingStatusChange({
+      orderId,
+      nextStatus,
+      currentStatus,
+      customerName: getCustomerName(order),
+      shortId: getShortOrderId(order),
+    });
+  };
+
+  const updateStatus = async (id, status) => {
+    if (!id) return false;
+    setUpdatingIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    try {
+      await updateOrderStatus({ id, status });
+      toast.success("Fulfillment status updated", { description: `Now ${status}.` });
+      return true;
+    } catch (updateError) {
+      toast.error("Couldn’t update fulfillment status", {
+        description: updateError?.message || "Please try again.",
+      });
+      return false;
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return;
+    const { orderId, nextStatus } = pendingStatusChange;
+    const didUpdate = await updateStatus(orderId, nextStatus);
+    if (!didUpdate) return;
+
+    setPendingStatusChange(null);
+    setUnlockedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
+  };
+
+  const isConfirming = Boolean(
+    pendingStatusChange && updatingIds.has(pendingStatusChange.orderId),
+  );
+
   return (
     <AdminShell
       eyebrow="Operations"
       title="Paid Orders"
-      description="Review successful payments and current order progress in one operations view. Status changes are unavailable until the backend endpoint is deployed."
+      description="Review successful payments, update fulfillment status, and see exactly when each order was delivered."
       actions={
         <RefreshButton
           onClick={() => refetch()}
@@ -711,11 +982,90 @@ function OrderManagementPage() {
           <section aria-label="Paid orders" className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {filteredOrders.map((order, index) => {
               const id = getOrderId(order);
-              return <OrderCard key={id || `order-${index}`} order={order} />;
+              return (
+                <OrderCard
+                  key={id || `order-${index}`}
+                  order={order}
+                  onRequestStatusChange={requestStatusChange}
+                  isUpdating={id ? updatingIds.has(id) : false}
+                  isUnlocked={id ? unlockedIds.has(id) : false}
+                  onToggleUnlock={() => toggleUnlock(id)}
+                />
+              );
             })}
           </section>
         )}
       </div>
+
+      <AlertDialog
+        open={Boolean(pendingStatusChange)}
+        onOpenChange={(open) => {
+          if (!open && !isConfirming) setPendingStatusChange(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Change status to {pendingStatusChange?.nextStatus || "…"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingStatusChange ? (
+                <>
+                  Order{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingStatusChange.shortId}
+                  </span>{" "}
+                  for{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingStatusChange.customerName}
+                  </span>{" "}
+                  will move from{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingStatusChange.currentStatus}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingStatusChange.nextStatus}
+                  </span>
+                  .
+                  {pendingStatusChange.nextStatus === "Ready"
+                    ? " Ready starts the student’s arrival countdown."
+                    : null}
+                  {pendingStatusChange.nextStatus === "Delivered"
+                    ? " Delivered records the exact time and date of handoff."
+                    : null}{" "}
+                  The student sees the update immediately.
+                </>
+              ) : (
+                "Confirm the fulfillment status update for this order."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isConfirming}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isConfirming}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmStatusChange();
+              }}
+              className={cn(
+                "rounded-xl",
+                getConfirmToneClass(pendingStatusChange?.nextStatus),
+              )}
+            >
+              {isConfirming ? (
+                <>
+                  <Loader2 aria-hidden="true" className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                "Confirm change"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminShell>
   );
 }

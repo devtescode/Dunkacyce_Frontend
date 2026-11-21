@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function DunnkayceLoader({
   variant = "page",
-  label = "Loading your orders...",
+  label = "Loading...",
   caption,
   className,
   icon: Icon = UtensilsCrossed,

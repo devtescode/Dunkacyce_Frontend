@@ -10,10 +10,20 @@ import {
   ShoppingCart,
   KeyRound,
   LogOut,
+  Crown,
   ChevronRight,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ThemeToggle } from "@/components/admin";
+import { toast } from "sonner";
+import { StatusPill, ThemeToggle } from "@/components/admin";
+import { getToken, useSuperadminMeQuery } from "@/lib/api";
+import {
+  formatAdminRole,
+  getAdminIdentity,
+  getAdminRole,
+  isSuperAdmin,
+  persistAdminSession,
+} from "@/lib/adminSession";
 import { cn } from "@/lib/utils";
 import { clearSession } from "@/lib/session";
 import { store } from "@/lib/store";
@@ -32,6 +42,13 @@ const adminNavItems = [
   // { to: "/admin-dashboard-delivery-management", label: "Delivery Management", icon: MapPin },
   // { to: "/admin-dashboard-system-settings", label: "System Settings", icon: ShieldCheck },
   { to: "/admin-dashboard-change-password", label: "Change Password", icon: KeyRound, group: "Security" },
+  {
+    to: "/admin-dashboard-superadmin",
+    label: "Super Admin",
+    icon: Crown,
+    group: "Security",
+    superOnly: true,
+  },
 ];
 
 const navGroups = ["Overview", "Operations", "Security"];
@@ -83,12 +100,14 @@ function AdminNavLink({ item, active, onNavigate, mobile = false }) {
 
 function SidebarNav({ pathname, onNavigate, mobile = false }) {
   return (
-    <nav aria-label="Admin sections" className={cn("px-1", mobile ? "mt-4 space-y-3" : "space-y-1")}>
+    <nav aria-label="Admin sections" className={cn("shrink-0 px-1", mobile ? "mt-4 space-y-3" : "space-y-1")}>
       <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-gold/80">
         Workspaces
       </p>
       {navGroups.map((group) => {
-        const items = adminNavItems.filter((item) => item.group === group);
+        const items = adminNavItems.filter(
+          (item) => item.group === group && (!item.superOnly || isSuperAdmin()),
+        );
         if (items.length === 0) return null;
         return (
           <div key={group}>
@@ -113,7 +132,7 @@ function SidebarNav({ pathname, onNavigate, mobile = false }) {
   );
 }
 
-function SidebarStatus({ onSupport, onLogout }) {
+function SidebarStatus({ onSupport, onLogout, roleLabel, isSuper }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
       <div className="flex items-center gap-2.5">
@@ -121,10 +140,13 @@ function SidebarStatus({ onSupport, onLogout }) {
           <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-fresh opacity-50 motion-reduce:animate-none" />
           <span className="h-2 w-2 rounded-full bg-fresh" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-white">Admin workspace</p>
           <p className="text-[11px] text-emerald-100/55">Use the controls below</p>
         </div>
+        <StatusPill tone={isSuper ? "gold" : "fresh"} className="shrink-0 border-white/15 bg-white/10 text-white">
+          {roleLabel}
+        </StatusPill>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/10 pt-3">
         <ThemeToggle compact className="text-emerald-50 hover:bg-white/10" />
@@ -153,6 +175,43 @@ export function AdminNavbar({ children }) {
   const pathname = useRouterState({ select: (router) => router.location?.pathname ?? "" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [, refreshRoleDependentUi] = useState(0);
+  const { data: superadminMe, error: superadminMeError } = useSuperadminMeQuery();
+
+  // The backend is authoritative for role/status. Reconcile the stored identity
+  // when /api/superadmin/me responds, and drop revoked sessions immediately.
+  useEffect(() => {
+    if (superadminMeError?.status === 401) {
+      sessionStorage.removeItem("adminToken");
+      sessionStorage.removeItem("admin");
+      toast.error("Your session ended or your access was revoked. Please sign in again.");
+      navigate({ to: "/adminlogin", replace: true });
+      return;
+    }
+
+    if (!superadminMe) return;
+
+    if (superadminMe.status === "blocked" || superadminMe.status === "inactive") {
+      sessionStorage.removeItem("adminToken");
+      sessionStorage.removeItem("admin");
+      toast.error("Your admin access is no longer active. Please contact a Super Admin.");
+      navigate({ to: "/adminlogin", replace: true });
+      return;
+    }
+
+    const role = superadminMe.role;
+    if (!role) return;
+
+    const identity = getAdminIdentity();
+    // Only write when the value actually changed so the sidebar refresh is one-shot.
+    if (!identity || identity.role === role) return;
+
+    const token = getToken("admin");
+    if (!token) return;
+    persistAdminSession(token, { ...identity, role });
+    refreshRoleDependentUi((tick) => tick + 1);
+  }, [superadminMe, superadminMeError, navigate]);
+
   const [open, setOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [desktopLoaded, setDesktopLoaded] = useState(false);
@@ -264,6 +323,8 @@ export function AdminNavbar({ children }) {
   const activeItem = adminNavItems.find((item) => pathname === item.to);
   const currentLabel = activeItem?.label ?? "Preview workspace";
   const isPreview = !activeItem;
+  const superAdmin = isSuperAdmin();
+  const roleLabel = formatAdminRole(getAdminRole());
   const sidebarToggleLabel = desktopOpen ? "Collapse sidebar" : "Expand sidebar";
 
   return (
@@ -308,7 +369,7 @@ export function AdminNavbar({ children }) {
           aria-hidden={!desktopOpen}
           inert={!desktopOpen}
           className={cn(
-            "relative hidden overflow-hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-80 lg:max-h-screen lg:flex-col lg:border-r lg:border-white/10 lg:px-4 lg:py-5",
+            "relative hidden overflow-hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-80 lg:h-screen lg:flex-col lg:border-r lg:border-white/10 lg:px-4 lg:py-5",
             "bg-forest-deep text-emerald-50 shadow-2xl",
             sidebarGradient,
             desktopLoaded ? "lg:transition-transform lg:duration-300 lg:ease-in-out" : "lg:transition-none",
@@ -316,8 +377,8 @@ export function AdminNavbar({ children }) {
           )}
         >
           <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0", grainOverlay)} />
-          <div className="relative z-10 flex flex-1 flex-col">
-            <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin]">
+            <div className="mb-5 shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <Link to="/admin-dashboard" className="flex min-w-0 items-center gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-fresh to-emerald-600 font-display text-lg text-white shadow-lg">
                   DK
@@ -332,8 +393,13 @@ export function AdminNavbar({ children }) {
 
             <SidebarNav pathname={pathname} />
 
-            <div className="mt-auto pt-5">
-              <SidebarStatus onSupport={openWhatsApp} onLogout={handleLogout} />
+            <div className="mt-auto shrink-0 pt-5">
+              <SidebarStatus
+                onSupport={openWhatsApp}
+                onLogout={handleLogout}
+                roleLabel={roleLabel}
+                isSuper={superAdmin}
+              />
             </div>
           </div>
         </aside>
@@ -448,7 +514,12 @@ export function AdminNavbar({ children }) {
             <SidebarNav pathname={pathname} onNavigate={closeDrawer} mobile />
 
             <div className="mt-auto p-4 pt-6">
-              <SidebarStatus onSupport={openWhatsApp} onLogout={handleLogout} />
+              <SidebarStatus
+                onSupport={openWhatsApp}
+                onLogout={handleLogout}
+                roleLabel={roleLabel}
+                isSuper={superAdmin}
+              />
             </div>
           </div>
         </aside>
