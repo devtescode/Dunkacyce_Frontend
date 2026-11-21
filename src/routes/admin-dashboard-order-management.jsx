@@ -421,8 +421,8 @@ function OrderCard({ order, onRequestStatusChange, isUpdating }) {
 function LoadingState() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
           <Card key={index} className="border-border/70">
             <CardContent className="space-y-3 p-5">
               <Skeleton className="h-3 w-24" />
