@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Menu, X, LayoutDashboard, Box, Camera, Truck, CreditCard, Users, MapPin, ShieldCheck, KeyRound, MessageCircle, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, Box, ClipboardList, ShoppingCart, KeyRound, LogOut } from "lucide-react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { clearSession } from "@/lib/session";
@@ -10,8 +10,8 @@ const adminNavItems = [
   { to: "/admin-dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/admin-dashboard-food-management", label: "Food Management", icon: Box },
   // { to: "/admin-dashboard/image-upload", label: "Image Upload", icon: Camera },
-  { to: "/admin-dashboard-order-management", label: "Order Management", icon: Truck },
-  { to: "/admin-dashboard-student-cart", label: "Student Cart", icon: Truck },
+  { to: "/admin-dashboard-order-management", label: "Order Management", icon: ClipboardList },
+  { to: "/admin-dashboard-student-cart", label: "Student Cart", icon: ShoppingCart },
 
   // { to: "/admin-dashboard-payment-tracking", label: "Payment Tracking", icon: CreditCard },
   // { to: "/admin-dashboard-user-analytics", label: "User Analytics", icon: Users },
@@ -100,35 +100,53 @@ export function AdminNavbar({ children }) {
     return children ?? null;
   }
 
+  const sidebarToggleLabel = desktopOpen ? "Collapse sidebar" : "Expand sidebar";
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b bg-background/90 backdrop-blur lg:hidden">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="border-b border-border/70 bg-card/90 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/admin-dashboard" className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg">
-              A
+          <Link to="/admin-dashboard" className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              D
             </span>
-            Admin
+            <span className="leading-tight">
+              <span className="block text-sm font-semibold text-foreground">Dunnkayce Admin</span>
+              <span className="block text-xs text-muted-foreground">Control center</span>
+            </span>
           </Link>
-          <button onClick={() => setOpen(true)} className="rounded-2xl border border-input bg-white p-2 shadow-sm transition hover:bg-slate-100" aria-label="Open admin menu">
-            <Menu className="h-5 w-5 text-slate-900" />
+          <button
+            onClick={() => setOpen(true)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-foreground shadow-sm transition hover:bg-accent"
+            aria-label="Open admin menu"
+          >
+            <Menu className="h-5 w-5" />
           </button>
         </div>
       </div>
 
       <div className="lg:flex lg:min-h-[calc(100vh-0px)]">
-        <aside className={cn(
-          "hidden lg:flex lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:w-80 lg:flex-col lg:border-r lg:border-input lg:bg-card lg:px-4 lg:py-6 lg:overflow-y-auto lg:max-h-screen",
-          desktopLoaded ? "lg:transition-transform lg:duration-300 lg:ease-in-out" : "lg:transition-none",
-          desktopLoaded ? (desktopOpen ? "lg:translate-x-0" : "lg:-translate-x-full") : "lg:opacity-0"
-        )}>
-          {/* <div className="mb-6 px-2">
-            <Link to="/admin-dashboard" className="flex items-center gap-3 rounded-3xl bg-primary px-4 py-4 text-lg font-semibold text-primary-foreground shadow-sm">
-              <LayoutDashboard className="h-5 w-5" />
-              Admin Panel
+        <aside
+          id="admin-sidebar"
+          className={cn(
+            "hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-80 lg:max-h-screen lg:flex-col lg:overflow-y-auto lg:border-r lg:border-border/70 lg:bg-card/95 lg:px-4 lg:py-5 lg:backdrop-blur",
+            desktopLoaded ? "lg:transition-transform lg:duration-300 lg:ease-in-out" : "lg:transition-none",
+            desktopLoaded ? (desktopOpen ? "lg:translate-x-0" : "lg:-translate-x-full") : "lg:opacity-0"
+          )}
+        >
+          <div className="mb-6 rounded-3xl border border-border/70 bg-background/70 p-4 shadow-sm">
+            <Link to="/admin-dashboard" className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground shadow-sm">
+                D
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold text-foreground">Dunnkayce Admin</span>
+                <span className="block text-xs text-muted-foreground">Control center</span>
+              </span>
             </Link>
-          </div> */}
-          <nav className="space-y-1 px-2">
+          </div>
+
+          <nav className="space-y-1.5 px-1">
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.to;
@@ -136,52 +154,80 @@ export function AdminNavbar({ children }) {
                 <Link
                   key={item.to}
                   to={item.to}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-3xl px-4 py-3 text-sm font-medium transition",
-                    active ? "bg-primary text-primary-foreground shadow" : "text-foreground hover:bg-primary/5"
+                    "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition",
+                    active
+                      ? "bg-primary/10 text-foreground ring-1 ring-primary/20 shadow-sm"
+                      : "text-muted-foreground hover:bg-background hover:text-foreground"
                   )}
                 >
-                  <span className={cn("grid h-10 w-10 place-items-center rounded-2xl", active ? "bg-primary/20 text-primary" : "bg-background text-muted-foreground")}>
+                  <span
+                    className={cn(
+                      "grid h-10 w-10 place-items-center rounded-xl border transition",
+                      active
+                        ? "border-primary/20 bg-primary text-primary-foreground"
+                        : "border-border/70 bg-background text-muted-foreground group-hover:text-foreground"
+                    )}
+                  >
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="mt-auto rounded-3xl border border-input bg-background p-4 text-sm text-muted-foreground">
-            <p className="font-semibold text-foreground">Admin actions</p>
-            <button onClick={openWhatsApp} className="mt-3 w-full rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
+          <div className="mt-auto rounded-3xl border border-border/70 bg-background/70 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-foreground">Admin actions</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Get support or securely end your session.
+            </p>
+            <button
+              onClick={openWhatsApp}
+              className="mt-4 w-full rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95"
+            >
               Support
             </button>
-            <button onClick={handleLogout} className="mt-3 w-full rounded-2xl border border-destructive px-3 py-2 text-sm font-semibold text-destructive">
+            <button
+              onClick={handleLogout}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-background px-4 py-2.5 text-sm font-semibold text-destructive transition hover:bg-destructive/5"
+            >
+              <LogOut className="h-4 w-4" />
               Logout
             </button>
           </div>
         </aside>
 
-        <div className={cn(
-          "flex-1 transition-all duration-300 ease-in-out",
-          !desktopLoaded && "lg:transition-none",
-          desktopOpen ? "lg:ml-80" : "lg:ml-0",
-          open ? "translate-x-[72%] sm:translate-x-[60%]" : "translate-x-0"
-        )}>
-          <div className="hidden items-center justify-between gap-3 border-b border-slate-200 px-4 pb-4 pt-2 text-slate-700 lg:flex">
+        <div
+          className={cn(
+            "flex-1 transition-all duration-300 ease-in-out",
+            !desktopLoaded && "lg:transition-none",
+            desktopOpen ? "lg:ml-80" : "lg:ml-0"
+          )}
+        >
+          <div className="hidden items-center justify-between gap-3 border-b border-border/70 bg-card/60 px-4 py-3 backdrop-blur lg:flex lg:px-6">
             <button
               onClick={() => setDesktopOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-sm border-none bg-white px-4 py-3 text-sm font-semibold shadow-sm transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-accent"
+              aria-label={sidebarToggleLabel}
+              aria-expanded={desktopOpen}
+              aria-controls="admin-sidebar"
             >
               {desktopOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-              {desktopOpen ? "Open" : "Close"} sidebar
+              {sidebarToggleLabel}
             </button>
-            <p className="text-sm"><button onClick={handleLogout} className="mt-3 w-full rounded-sm border-none bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">
-              <LogOut className="h-4 w-4" /> 
-            </button></p>
-            
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-accent"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
           </div>
 
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </div>
         </div>
@@ -190,26 +236,35 @@ export function AdminNavbar({ children }) {
       <div
         className={cn(
           "fixed inset-0 z-50 transition-opacity duration-300 lg:hidden",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
         aria-hidden={!open}
       >
-        <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={() => setOpen(false)} />
-        <aside className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[85%] max-w-xs overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 shadow-2xl transition-transform duration-300 ease-in-out",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <div className="flex items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-primary to-secondary px-4 py-4 text-white shadow-sm">
+        <div className="absolute inset-0 bg-foreground/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="Admin navigation"
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 w-[85%] max-w-xs overflow-y-auto border-r border-border/70 bg-card px-4 py-5 shadow-2xl transition-transform duration-300 ease-in-out",
+            open ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <div className="flex items-center justify-between gap-3 rounded-3xl border border-border/70 bg-background/80 p-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-white">
-                A
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                D
               </span>
               <div>
-                <p className="text-sm font-semibold">Admin Menu</p>
-                <p className="text-xs text-slate-100/80">Swift control center</p>
+                <p className="text-sm font-semibold text-foreground">Dunnkayce Admin</p>
+                <p className="text-xs text-muted-foreground">Control center</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="rounded-2xl bg-white/15 p-2 text-white transition hover:bg-white/25" aria-label="Close menu">
+            <button
+              onClick={() => setOpen(false)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-foreground transition hover:bg-accent"
+              aria-label="Close menu"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -223,17 +278,22 @@ export function AdminNavbar({ children }) {
                   key={item.to}
                   to={item.to}
                   onClick={() => setOpen(false)}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-3xl px-4 py-3 text-sm font-semibold transition",
+                    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition",
                     active
-                      ? "bg-slate-900 text-white shadow-lg"
-                      : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+                      ? "bg-primary/10 text-foreground ring-1 ring-primary/20 shadow-sm"
+                      : "bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
-                  <span className={cn(
-                    "grid h-11 w-11 place-items-center rounded-2xl",
-                    active ? "bg-white text-slate-900" : "bg-slate-200 text-slate-600"
-                  )}>
+                  <span
+                    className={cn(
+                      "grid h-11 w-11 place-items-center rounded-xl border",
+                      active
+                        ? "border-primary/20 bg-primary text-primary-foreground"
+                        : "border-border/70 bg-card text-muted-foreground"
+                    )}
+                  >
                     <Icon className="h-5 w-5" />
                   </span>
                   <span>{item.label}</span>
@@ -242,13 +302,22 @@ export function AdminNavbar({ children }) {
             })}
           </nav>
 
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-900">Need help?</p>
-            <p className="mt-2 text-sm text-slate-600">Chat with support or logout when you’re done.</p>
-            <button onClick={openWhatsApp} className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+          <div className="mt-6 rounded-3xl border border-border/70 bg-background/70 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-foreground">Need help?</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Chat with support or logout when you’re done.
+            </p>
+            <button
+              onClick={openWhatsApp}
+              className="mt-4 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-95"
+            >
               Support Chat
             </button>
-            <button onClick={handleLogout} className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">
+            <button
+              onClick={handleLogout}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-accent"
+            >
+              <LogOut className="h-4 w-4" />
               Logout
             </button>
           </div>
