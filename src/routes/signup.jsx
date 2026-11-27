@@ -1,10 +1,17 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, Lock, Mail, Phone, User } from "lucide-react";
+import { ArrowRight, ChevronDown, Mail, Phone, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useSignupMutation } from "@/lib/api";
 import { store } from "@/lib/store";
 import { setSessionToken, setSessionUser } from "@/lib/session";
+import {
+  AuthField,
+  AuthInput,
+  AuthLayout,
+  AuthSubmit,
+  PasswordInput,
+} from "@/components/auth/AuthUI";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — DUNNKAYCE" }] }),
@@ -21,6 +28,16 @@ function SignupPage() {
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+
+  const clearError = (field) =>
+    setErrors((current) => ({ ...current, [field]: undefined }));
+
+  const fail = (field, message) => {
+    setErrors({ [field]: message });
+    toast.error(message);
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -32,11 +49,15 @@ function SignupPage() {
       password: form.password,
     };
 
-    if (!payload.fullName) return toast.error("Full name is required");
-    if (!payload.phone) return toast.error("Phone number is required");
-    if (!payload.gender) return toast.error("Please select gender");
-    if (!payload.email) return toast.error("Email is required");
-    if (payload.password.length < 6) return toast.error("Password must be at least 6 characters");
+    if (!payload.fullName) return fail("fullName", "Full name is required");
+    if (!payload.phone) return fail("phone", "Phone number is required");
+    if (!payload.gender) return fail("gender", "Please select gender");
+    if (!payload.email) return fail("email", "Email is required");
+    if (payload.password.length < 6)
+      return fail("password", "Password must be at least 6 characters");
+
+    setErrors({});
+    setFormError("");
 
     try {
       const data = await signupMutation.mutateAsync(payload);
@@ -45,6 +66,7 @@ function SignupPage() {
 
       if (!currentUser) {
         toast.error("Signup failed: invalid user data");
+        setFormError("Signup failed: invalid user data");
         return;
       }
 
@@ -61,103 +83,141 @@ function SignupPage() {
     } catch (error) {
       const message = error?.payload?.message || error?.message || "Signup failed";
       toast.error(error?.status || error?.payload ? message : "Network error. Please try again.");
+      setFormError(error?.status || error?.payload ? message : "Network error. Please try again.");
     }
   };
 
   return (
-    <main className="relative min-h-[calc(100vh-5rem)] overflow-hidden bg-background px-4 py-12 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(255,201,40,0.16),transparent_25%),radial-gradient(circle_at_bottom_left,rgba(32,164,71,0.12),transparent_30%)]" />
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2">
-        <div className="hidden lg:block">
-          <p className="inline-flex rounded-full bg-secondary px-4 py-2 text-sm font-semibold text-primary">Join DUNNKAYCE</p>
-          <h1 className="mt-5 max-w-xl text-5xl font-black tracking-tight text-primary">
-            Campus meals,
-            <span className="block text-foreground">made effortless.</span>
-          </h1>
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
-            Create your account to order fresh, tasty meals and get them delivered right where you are on campus.
-          </p>
-        </div>
+    <AuthLayout
+      mode="signup"
+      title="Create your account"
+      description="Join DUNNKAYCE for campus meal delivery — fresh food, easy ordering, right where you are."
+      footer={
+        <Link
+          to="/login"
+          className="flex w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-2xl border border-primary/25 bg-secondary px-4 py-3 text-center text-[13px] font-bold text-primary transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30 motion-reduce:transition-none sm:text-sm"
+        >
+          Already have an account? Sign in
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      }
+    >
+      <form noValidate onSubmit={onSubmit} aria-busy={signupMutation.isPending} className="space-y-5">
+        <fieldset disabled={signupMutation.isPending} className="min-w-0 space-y-5 border-0 p-0">
+          <legend className="sr-only">Create account details</legend>
 
-        <div className="mx-auto w-full max-w-md rounded-[2rem] border border-border bg-card p-6 shadow-xl shadow-primary/5 sm:p-8">
-          <div className="mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-lg font-black text-primary-foreground">D</div>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground">Create account</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link to="/login" className="font-semibold text-primary hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </div>
+          <AuthField
+            id="signup-name"
+            label="Full name"
+            icon={UserRound}
+            error={errors.fullName}
+          >
+            <AuthInput
+              id="signup-name"
+              name="fullName"
+              autoComplete="name"
+              required
+              placeholder="Your full name"
+              value={form.fullName}
+              onChange={(e) => {
+                clearError("fullName");
+                setForm({ ...form, fullName: e.target.value });
+              }}
+            />
+          </AuthField>
 
-          <form onSubmit={onSubmit} className="space-y-4">
-            <Field label="Full name" htmlFor="signup-name">
-              <InputWrap icon={User}>
-                <input id="signup-name" autoComplete="name" className={inputClass} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Your full name" required />
-              </InputWrap>
-            </Field>
+          <AuthField
+            id="signup-phone"
+            label="Phone"
+            icon={Phone}
+            error={errors.phone}
+          >
+            <AuthInput
+              id="signup-phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              placeholder="080..."
+              value={form.phone}
+              onChange={(e) => {
+                clearError("phone");
+                setForm({ ...form, phone: e.target.value });
+              }}
+            />
+          </AuthField>
 
-            <Field label="Phone" htmlFor="signup-phone">
-              <InputWrap icon={Phone}>
-                <input id="signup-phone" autoComplete="tel" className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="080..." required />
-              </InputWrap>
-            </Field>
-
-            <Field label="Gender" htmlFor="signup-gender">
-              <select id="signup-gender" className="h-12 w-full rounded-xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary/40 focus:ring-4 focus:ring-primary/10" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} required>
-                <option value="" disabled>Select gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </Field>
-
-            <Field label="Email" htmlFor="signup-email">
-              <InputWrap icon={Mail}>
-                <input id="signup-email" type="email" autoComplete="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" required />
-              </InputWrap>
-            </Field>
-
-            <Field label="Password" htmlFor="signup-password">
-              <InputWrap icon={Lock}>
-                <input id="signup-password" type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="At least 6 characters" minLength={6} required />
-              </InputWrap>
-            </Field>
-
-            <button
-              type="submit"
-              disabled={signupMutation.isPending}
-              className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-60"
+          <AuthField
+            id="signup-gender"
+            label="Gender"
+            icon={UserRound}
+            error={errors.gender}
+            trailing={<ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+          >
+            <select
+              id="signup-gender"
+              name="gender"
+              required
+              className="w-full min-w-0 flex-1 appearance-none bg-transparent py-3.5 pl-14 pr-12 text-sm text-foreground focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              value={form.gender}
+              onChange={(e) => {
+                clearError("gender");
+                setForm({ ...form, gender: e.target.value });
+              }}
             >
-              {signupMutation.isPending ? "Creating account..." : "Create account"}
-              {!signupMutation.isPending && <ArrowRight className="h-4 w-4" />}
-            </button>
-          </form>
-        </div>
-      </div>
-    </main>
-  );
-}
+              <option value="" disabled>
+                Select gender
+              </option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </AuthField>
 
-const inputClass =
-  "h-12 w-full rounded-xl border border-input bg-background pl-11 pr-4 text-sm outline-none transition focus:border-primary/40 focus:ring-4 focus:ring-primary/10";
+          <AuthField id="signup-email" label="Email" icon={Mail} error={errors.email}>
+            <AuthInput
+              id="signup-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={(e) => {
+                clearError("email");
+                setForm({ ...form, email: e.target.value });
+              }}
+            />
+          </AuthField>
 
-function Field({ label, htmlFor, children }) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-2 block text-sm font-semibold text-foreground">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
+          <PasswordInput
+            id="signup-password"
+            name="password"
+            label="Password"
+            autoComplete="new-password"
+            required
+            minLength={6}
+            placeholder="At least 6 characters"
+            hint="Minimum 6 characters."
+            error={errors.password}
+            disabled={signupMutation.isPending}
+            value={form.password}
+            onChange={(e) => {
+              clearError("password");
+              setForm({ ...form, password: e.target.value });
+            }}
+          />
 
-function InputWrap({ icon: Icon, children }) {
-  return (
-    <div className="relative">
-      <Icon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      {children}
-    </div>
+          <AuthSubmit
+            isPending={signupMutation.isPending}
+            idleLabel="Create account"
+            pendingLabel="Creating account..."
+          />
+        </fieldset>
+        <p role="alert" className="sr-only">
+          {formError}
+        </p>
+      </form>
+    </AuthLayout>
   );
 }

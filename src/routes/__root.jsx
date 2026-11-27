@@ -79,7 +79,8 @@ function RootComponent() {
 
   const isLoggedIn = useStore((s) => Boolean(s.currentUserId));
   const isAdmin = pathname?.startsWith("/admin");
-  const hideAuthChrome = pathname === "/login" || pathname === "/signup";
+  const normalizedPathname = pathname?.replace(/\/+$/, "").toLowerCase();
+  const hideAuthChrome = normalizedPathname === "/login" || normalizedPathname === "/signup";
   const isAuthAppRoute = [
     "/user-dashboard",
     "/cart",

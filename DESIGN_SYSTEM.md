@@ -92,3 +92,11 @@ Rules: consistent `aspect-[4/3]` for cards/previews (1:1 thumbnails only where s
 ## 8. Verification
 
 After implementation: `npm.cmd run build` must succeed; no route paths changed; no new endpoints; no duplicate API calls; both themes render; responsive checks at mobile/tablet/desktop. Also confirm the payment toast still fires on `payment_confirmed` / `payment:received` (all payloads deduped by id or stable fallback), the chime sounds only with sound enabled, Web Audio available and the `AudioContext` already running (no queued chimes after suspension), and that the mute toggle persists `dunnkayce-payment-sound` with an in-memory fallback when storage is blocked, in both themes.
+
+## 9. Student auth pages
+
+`/login` and `/signup` use a full-bleed split-screen shell from `src/components/auth/AuthUI.jsx`: a forest brand panel (local university logo, display headline, benefit chips, an oversized decorative `SCF` watermark, and an illustrative `FOOD_HIGHLIGHTS` menu preview) beside a centred `max-w-[440px]` card. Mobile shows a compact brand header only; **no Navbar or global `Footer`** are mounted on either page.
+
+- Each card carries a title/description (the eyebrow stays in the brand panel and compact mobile header), a cross-link in the card's `<footer>` landmark — **not** the global `Footer` component (login → “Create an account”, signup → “Sign in”) — labelled icon-tile fields with optional helper text and `role="alert"` errors wired via `aria-invalid` / `aria-describedby`, a password reveal toggle with a static accessible label (`aria-label="Toggle password visibility"`), `aria-pressed` state and a dynamic `title` (“Show password” / “Hide password”), and a full-width submit with spinner + `role="status"` label. Forms use `aria-busy` and a disabled fieldset while pending; decorative icons/orbs/watermark are `aria-hidden` and animations respect `motion-reduce`.
+- Visual pass only: validation order and copies, toasts, payloads, session writes, mutations, error handling, navigation, and route head titles stay unchanged. No new endpoints or dependencies.
+- `src/routes/__root.jsx` normalizes the pathname (trailing slashes + case) before deciding to hide auth chrome, so `/login/`, `/LOGIN`, and `/signup/` remain navbar/footer-free. Nothing else in the root changes.
